@@ -2,16 +2,25 @@
 <resources>
     <string name="sms_login_title">Login por SMS (experimental)</string>
     <string name="sms_login_enable">Permitir login por SMS</string>
-    <string name="sms_login_default_off">Desativado por padrão · confirmar cada login</string>
-    <string name="sms_login_limits">Apenas um campo nativo. Remetente, serviço e dígitos da conta devem coincidir na tela e no SMS. Não lê a caixa de entrada. Em caso de dúvida, use login manual. Capturas e prévias do telefone ficam ocultas pelo restante desta tarefa. O sistema ou instalador pode restringir a permissão.</string>
+    <string name="sms_login_default_off">Desativado por padrão · perfis locais</string>
+    <string name="sms_login_limits">Login automático em apps nativos configurados, verificando assinatura, remetente, serviço e conta. Sem confirmação por tentativa. Sem permissão ou prova de sucesso, use modo manual. Após verificar, leitura de texto retorna; imagens ficam locais.</string>
     <string name="sms_login_permission">Permissão de SMS do Android</string>
     <string name="sms_login_error">Falha na permissão ou gravação. Entre manualmente e verifique as permissões.</string>
-    <string name="sms_login_disclosure">Receba novos SMS apenas durante um login confirmado individualmente. A comparação e o preenchimento ocorrem no aparelho. Códigos não são enviados ao modelo, registrados ou salvos. Exige permissão do sistema. Desativar cancela imediatamente.</string>
-    <string name="sms_login_consent">Autorize esta tarefa a solicitar e inserir um código no app indicado. Informe remetente exato, serviço entre colchetes e 4–11 dígitos da conta exibidos separadamente na tela e no SMS. Cancele em caso de dúvida. Códigos de pagamento, recuperação e cadastro são recusados.</string>
+    <string name="sms_login_disclosure">Autorize somente apps assinados e contas configuradas aqui. Mika pode solicitar, preencher e enviar o login sem perguntar novamente, depois verificar a conta localmente. Sem pagamentos, recuperação ou cadastro. SMS e códigos não são salvos nem enviados ao modelo. Desative ou exclua o perfil para revogar.</string>
     <string name="sms_login_sender">Remetente exato do SMS</string>
     <string name="sms_login_signature">Serviço entre colchetes</string>
     <string name="sms_login_account">Dígitos comuns da conta (4–11)</string>
-    <string name="sms_login_allow_once">Autorizar esta tentativa</string>
-    <string name="sms_login_listening">Solicitando e aguardando um SMS correspondente (até 90 segundos). O código não é exibido nem compartilhado.</string>
+    <string name="sms_login_listening">Solicitando, preenchendo e verificando automaticamente a conta configurada. É possível cancelar.</string>
     <string name="sms_login_tool">Login por SMS</string>
+    <string name="sms_profile_title">Serviços e contas confiáveis</string>
+    <string name="sms_profile_help">Configure uma vez. Salvar autoriza solicitar o código, preencher conta e código, tocar no login final e verificar a conta neste app assinado. Exige IDs nativos revisados e indicação clara da conta conectada. Uma conta por app; editar ou excluir revoga. Criptografia local com Android Keystore.</string>
+    <string name="sms_profile_accountvalue">Número da conta (somente neste aparelho)</string>
+    <string name="sms_profile_package">Pacote do app instalado</string>
+    <string name="sms_profile_accountfield">ID do campo de conta</string>
+    <string name="sms_profile_codefield">ID do campo de código</string>
+    <string name="sms_profile_sendbutton">ID do botão de solicitar código</string>
+    <string name="sms_profile_loginbutton">ID do botão final de login</string>
+    <string name="sms_profile_successview">ID do indicador de login</string>
+    <string name="sms_profile_successtext">Texto exato do indicador de login</string>
+    <string name="sms_profile_successaccount">ID da conta conectada</string>
 </resources>

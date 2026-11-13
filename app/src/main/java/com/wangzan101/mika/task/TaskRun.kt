@@ -598,7 +598,7 @@ class TaskRun(
             var accessGuard: com.wangzan101.mika.core.uistate.AppAccessScreenPort? = null
             var smsPrivacy: com.wangzan101.mika.core.cap.phone.sms.SmsPrivateScreen? = null
             suspend fun previewAllowed(): Boolean {
-                if (smsPrivacy?.privateLogin == true) return false
+                if (smsPrivacy?.imagesPrivate == true) return false
                 val guard = accessGuard ?: return false
                 return try {
                     guard.checkAppAccess()

@@ -2,16 +2,25 @@
 <resources>
     <string name="sms_login_title">Login SMS (eksperimental)</string>
     <string name="sms_login_enable">Izinkan login SMS</string>
-    <string name="sms_login_default_off">Nonaktif secara bawaan · konfirmasi tiap login</string>
-    <string name="sms_login_limits">Hanya satu kolom asli. Pengirim, nama layanan, dan digit akun harus cocok di layar dan SMS. Kotak masuk tidak dibaca. Jika ragu, gunakan cara manual. Pembacaan layar dan pratinjau ponsel disembunyikan selama sisa tugas ini. Sistem atau pemasang dapat membatasi izin.</string>
+    <string name="sms_login_default_off">Nonaktif bawaan · profil lokal tepercaya</string>
+    <string name="sms_login_limits">Login otomatis untuk aplikasi asli yang dikonfigurasi dengan kecocokan tanda tangan, pengirim, layanan, dan akun. Tanpa konfirmasi tiap login. Jika izin atau bukti kurang, gunakan cara manual. Teks layar dilanjutkan setelah verifikasi; gambar tetap lokal.</string>
     <string name="sms_login_permission">Izin SMS Android</string>
     <string name="sms_login_error">Izin atau penyimpanan gagal. Login manual dan periksa izin sistem.</string>
-    <string name="sms_login_disclosure">Terima SMS baru hanya saat login yang dikonfirmasi satu per satu. Pencocokan dan pengisian dilakukan di perangkat. Kode tidak dikirim ke model, dicatat, atau disimpan. Izin sistem diperlukan terpisah. Menonaktifkan langsung membatalkan percobaan.</string>
-    <string name="sms_login_consent">Izinkan tugas ini meminta dan mengisi satu kode login di aplikasi di atas. Masukkan pengirim tepat, nama layanan dalam kurung, serta 4–11 digit akun yang muncul terpisah di layar dan SMS. Batalkan jika ragu. Kode pembayaran, pemulihan, dan pendaftaran ditolak.</string>
+    <string name="sms_login_disclosure">Izinkan hanya aplikasi bertanda tangan dan akun yang dikonfigurasi di sini. Mika dapat meminta, mengisi, mengirim login tanpa bertanya lagi lalu memverifikasi akun secara lokal. Bukan untuk pembayaran, pemulihan, atau pendaftaran. SMS dan kode tidak disimpan atau dikirim ke model. Nonaktifkan atau hapus profil untuk mencabut.</string>
     <string name="sms_login_sender">Pengirim SMS tepat</string>
     <string name="sms_login_signature">Nama layanan dalam kurung</string>
     <string name="sms_login_account">Digit akun yang cocok (4–11)</string>
-    <string name="sms_login_allow_once">Izinkan percobaan ini</string>
-    <string name="sms_login_listening">Meminta dan menunggu SMS login yang cocok (maksimal 90 detik). Kode tidak ditampilkan atau dibagikan.</string>
+    <string name="sms_login_listening">Meminta, mengisi, dan memverifikasi akun terkonfigurasi secara otomatis. Dapat dibatalkan.</string>
     <string name="sms_login_tool">Login SMS</string>
+    <string name="sms_profile_title">Layanan dan akun tepercaya</string>
+    <string name="sms_profile_help">Konfigurasi sekali. Menyimpan mengizinkan permintaan kode, pengisian akun dan kode, menekan login akhir, dan verifikasi akun pada aplikasi bertanda tangan ini. Perlu ID sumber daya asli yang ditinjau serta penanda akun masuk yang jelas. Satu akun per aplikasi; ubah atau hapus untuk mencabut. Dienkripsi lokal dengan Android Keystore.</string>
+    <string name="sms_profile_accountvalue">Nomor akun (hanya di perangkat ini)</string>
+    <string name="sms_profile_package">Paket aplikasi terpasang</string>
+    <string name="sms_profile_accountfield">ID sumber daya kolom akun</string>
+    <string name="sms_profile_codefield">ID sumber daya kolom kode</string>
+    <string name="sms_profile_sendbutton">ID tombol meminta kode</string>
+    <string name="sms_profile_loginbutton">ID tombol login akhir</string>
+    <string name="sms_profile_successview">ID penanda sudah masuk</string>
+    <string name="sms_profile_successtext">Teks tepat penanda sudah masuk</string>
+    <string name="sms_profile_successaccount">ID tampilan akun yang masuk</string>
 </resources>

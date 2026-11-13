@@ -13,9 +13,7 @@ internal object PhoneSmsLogin : PhoneTool {
     override val sandboxCallable = false
     override val def = ToolDef("phone_sms_login", Prompts.tool("phone_sms_login"), mapOf(
         "app" to str("Exact Android package of the app the user asked to log into."),
-        "resourceId" to str("Exact resource ID of a single native verification-code editor from the current screen."),
-        "sendButtonId" to str("Exact resource ID of the native send/resend-code button. The host listens before clicking it once."),
-    ), listOf("app", "resourceId", "sendButtonId"))
+    ), listOf("app"))
     override fun available(ctx: ToolContext): Boolean {
         val run = ctx.config.runSpec ?: return false
         return ctx[PhoneCapability.KEY]?.smsLogin != null && !run.readOnly && run.parent == null &&
@@ -27,13 +25,11 @@ internal object PhoneSmsLogin : PhoneTool {
         if (!available(ctx)) return ToolExecution(buildJsonObject { put("ok", false); put("status", "unavailable") })
         val pkg = a.str("app", max = 200) ?: throw ArgError("app", "required")
         if (!PACKAGE_NAME_RE.matches(pkg)) throw ArgError("app", "must be an Android package name")
-        val id = a.str("resourceId", max = 300) ?: throw ArgError("resourceId", "required")
-        val send = a.str("sendButtonId", max = 300) ?: throw ArgError("sendButtonId", "required")
-        val status = ctx.phone.smsLogin?.fill(pkg, id, send) ?: SmsLoginStatus.UNAVAILABLE
+        val status = ctx.phone.smsLogin?.login(pkg) ?: SmsLoginStatus.UNAVAILABLE
         return ToolExecution(buildJsonObject {
-            put("ok", status == SmsLoginStatus.FILLED)
+            put("ok", status == SmsLoginStatus.LOGGED_IN)
             put("status", status.name.lowercase())
-            put("message", "No code is returned. If not filled, offer manual takeover. After the private login flow starts, phone observations and previews remain hidden for this run; hand over any remaining login step and finish the task. Do not claim login succeeded from filled alone.")
+            put("message", "Only logged_in confirms the configured account on a verified landing page. Codes and SMS are never returned. If unverified or unsupported, report the actual status and offer manual takeover; do not retry through messages, notifications, shell or other services.")
         })
     }
 }

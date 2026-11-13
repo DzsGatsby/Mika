@@ -541,11 +541,62 @@ class AndroidScreen(
         typeField(found, text)
     }
 
-    /** SMS-only native input path. Never use the generic clipboard/input fallback or echo values. */
-    suspend fun fillSmsLoginCode(pkg: String, resourceId: String,
-        scope: com.wangzan101.mika.core.cap.phone.sms.SmsLoginScope, code: CharArray,
+    /** Prepare the explicitly configured account locally; never overwrite a different visible account. */
+    suspend fun prepareSmsLogin(p: com.wangzan101.mika.core.cap.phone.sms.SmsLoginProfile,
         authorize: (() -> Boolean) -> Boolean): Boolean = withContext(Dispatchers.IO) {
-        val current = smsLoginScreen(pkg, resourceId, scope) ?: return@withContext false
+        if (!smsPrimaryUser()) return@withContext false
+        val s = snapshot()
+        if (!com.wangzan101.mika.core.cap.phone.sms.SmsLoginMatcher.target(s, p.app, p.codeField)) return@withContext false
+        val field = s.elements.filter { it.resourceId == p.accountField }.singleOrNull() ?: return@withContext false
+        val found = findField(field.ref, s.snapshotId, tapToFocus = false) as? Field.Found ?: return@withContext false
+        val node = found.node
+        if (found.relocatedTo != null || inWebView(node) || node.isPassword || node.packageName?.toString() != p.app ||
+            node.viewIdResourceName != p.accountField || !node.refresh() || !node.isEnabled) return@withContext false
+        val rawAccount = if (field.hint) "" else node.text?.toString().orEmpty().trim()
+        val current = rawAccount.filter(Char::isDigit)
+        if (rawAccount.isNotEmpty() && current != p.account) return@withContext false
+        if (current == p.account) true else authorize { setText(node, p.account) }
+    }
+
+    suspend fun submitSmsLogin(p: com.wangzan101.mika.core.cap.phone.sms.SmsLoginProfile, code: CharArray,
+        authorize: (() -> Boolean) -> Boolean): Boolean = withContext(Dispatchers.IO) {
+        val scope = com.wangzan101.mika.core.cap.phone.sms.SmsLoginScope(p.sender, p.signature, p.account)
+        val s = smsLoginScreen(p.app, p.codeField, scope) ?: return@withContext false
+        val account = s.elements.filter { it.resourceId == p.accountField }.singleOrNull() ?: return@withContext false
+        if (account.name.filter(Char::isDigit) != p.account) return@withContext false
+        val editor = s.elements.single { it.resourceId == p.codeField }
+        if (editor.name.filter(Char::isDigit) != String(code)) return@withContext false
+        val button = s.elements.filter { it.resourceId == p.loginButton }.singleOrNull() ?: return@withContext false
+        if (!Regex("^(?:登录|登 录|登入|sign in|log in)$", RegexOption.IGNORE_CASE).matches(button.name.trim())) return@withContext false
+        val (node, relocated) = resolve(button.ref, s.snapshotId) ?: return@withContext false
+        if (relocated != null || inWebView(node) || node.packageName?.toString() != p.app || node.viewIdResourceName != p.loginButton) return@withContext false
+        authorize { node.refresh() && node.isEnabled && node.isVisibleToUser && node.isClickable && node.performAction(AccessibilityNodeInfo.ACTION_CLICK) }
+    }
+
+    suspend fun smsLoginOutcome(p: com.wangzan101.mika.core.cap.phone.sms.SmsLoginProfile, code: CharArray): com.wangzan101.mika.core.cap.phone.sms.SmsLoginOutcome = withContext(Dispatchers.IO) {
+        if (!smsPrimaryUser()) return@withContext com.wangzan101.mika.core.cap.phone.sms.SmsLoginOutcome.Unsafe
+        val s = peek()
+        val outcome = com.wangzan101.mika.core.cap.phone.sms.SmsLoginEvidence.outcome(p, s, code)
+        if (outcome != com.wangzan101.mika.core.cap.phone.sms.SmsLoginOutcome.Verified) return@withContext outcome
+        // OCR stays on device. Missing OCR or residual code pixels cannot authorize resuming observations.
+        val lines = kotlinx.coroutines.withTimeoutOrNull(2000) { readVisibleText() }
+            ?: return@withContext com.wangzan101.mika.core.cap.phone.sms.SmsLoginOutcome.Pending
+        if (com.wangzan101.mika.core.cap.phone.sms.SmsLoginEvidence.containsCode(lines.joinToString(" ") { it.text }, code))
+            com.wangzan101.mika.core.cap.phone.sms.SmsLoginOutcome.Pending
+        else com.wangzan101.mika.core.cap.phone.sms.SmsLoginEvidence.outcome(p, peek(), code)
+    }
+
+    private fun smsPrimaryUser(): Boolean {
+        if (!hasDisplay) return false
+        val top = runCatching { shell.topTaskId(displayId) }.getOrDefault(-1)
+        return top >= 0 && userOf(top) == 0
+    }
+
+    /** SMS-only native input path. Never use the generic clipboard/input fallback or echo values. */
+    suspend fun fillSmsLoginCode(p: com.wangzan101.mika.core.cap.phone.sms.SmsLoginProfile, code: CharArray,
+        authorize: (() -> Boolean) -> Boolean): Boolean = withContext(Dispatchers.IO) {
+        val pkg = p.app; val resourceId = p.codeField
+        val current = profileLoginScreen(p) ?: return@withContext false
         val field = current.elements.single { it.resourceId == resourceId }
         val found = findField(field.ref, current.snapshotId, tapToFocus = false) as? Field.Found ?: return@withContext false
         val node = found.node
@@ -559,10 +610,10 @@ class AndroidScreen(
     }
 
     /** Listen first, then request one code on the verified login page. */
-    suspend fun requestSmsLoginCode(pkg: String, resourceId: String, sendButtonId: String,
-        scope: com.wangzan101.mika.core.cap.phone.sms.SmsLoginScope,
+    suspend fun requestSmsLoginCode(p: com.wangzan101.mika.core.cap.phone.sms.SmsLoginProfile,
         authorize: (() -> Boolean) -> Boolean): Boolean = withContext(Dispatchers.IO) {
-        val current = smsLoginScreen(pkg, resourceId, scope) ?: return@withContext false
+        val pkg = p.app; val sendButtonId = p.sendButton
+        val current = profileLoginScreen(p) ?: return@withContext false
         if (!sendButtonId.startsWith("$pkg:id/")) return@withContext false
         val button = current.elements.filter { it.resourceId == sendButtonId }.singleOrNull() ?: return@withContext false
         if (!button.clickable || button.editable || !Regex("获取验证码|发送验证码|重新获取|重新发送|send.?code|resend", RegexOption.IGNORE_CASE)
@@ -573,6 +624,13 @@ class AndroidScreen(
             node.refresh() && node.isEnabled && node.isVisibleToUser && node.isClickable &&
                 node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
         }
+    }
+
+    private suspend fun profileLoginScreen(p: com.wangzan101.mika.core.cap.phone.sms.SmsLoginProfile): ScreenSnapshot? {
+        val scope = com.wangzan101.mika.core.cap.phone.sms.SmsLoginScope(p.sender, p.signature, p.account)
+        val s = smsLoginScreen(p.app, p.codeField, scope) ?: return null
+        val account = s.elements.filter { it.resourceId == p.accountField }.singleOrNull() ?: return null
+        return s.takeIf { !account.hint && account.name.filter(Char::isDigit) == p.account }
     }
 
     private suspend fun smsLoginScreen(pkg: String, resourceId: String,

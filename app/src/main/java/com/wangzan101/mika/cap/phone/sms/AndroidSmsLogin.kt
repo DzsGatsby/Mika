@@ -31,6 +31,12 @@ class SmsLoginRuntime(context: Context) {
         privatePackages[token] = pkg
         return AutoCloseable { privatePackages.remove(token) }
     }
+    fun signer(context: Context, pkg: String): String? = runCatching {
+        @Suppress("DEPRECATION")
+        val info = context.packageManager.getPackageInfo(pkg, PackageManager.GET_SIGNING_CERTIFICATES)
+        val signature = info.signingInfo?.apkContentsSigners?.singleOrNull() ?: return null
+        java.security.MessageDigest.getInstance("SHA-256").digest(signature.toByteArray()).joinToString("") { "%02x".format(it) }
+    }.getOrNull()
     fun permitted(context: Context) = ContextCompat.checkSelfPermission(context, Manifest.permission.RECEIVE_SMS) == PackageManager.PERMISSION_GRANTED
 }
 
@@ -44,77 +50,66 @@ class AndroidSmsLogin(
     private val screen: () -> AndroidScreen?,
 ) : SmsLoginPort, AutoCloseable {
     private var protection: AutoCloseable? = null
-    override fun close() { protection?.close(); protection = null }
-    override suspend fun fill(packageName: String, resourceId: String, sendButtonId: String): SmsLoginStatus {
-        if (privacy.privateLogin) return SmsLoginStatus.UNAVAILABLE
+    private var attempted = false
+    override fun close() { protection?.close(); protection = null; privacy.close() }
+    override suspend fun login(packageName: String): SmsLoginStatus {
+        if (attempted) return SmsLoginStatus.UNAVAILABLE
         val consent = runtime.settings.state.value
         if (!consent.enabled) return SmsLoginStatus.DISABLED
         if (!runtime.permitted(context)) return SmsLoginStatus.PERMISSION_REQUIRED
+        val profile = consent.profiles.filter { it.app == packageName }.singleOrNull() ?: return SmsLoginStatus.NO_TRUSTED_PROFILE
+        if (!profile.valid || runtime.signer(context, packageName) != profile.signer) return SmsLoginStatus.TARGET_UNVERIFIED
         if (!runtime.lock.tryLock()) return SmsLoginStatus.BUSY
         try {
             val device = screen() ?: return SmsLoginStatus.UNAVAILABLE
             guarded.checkAppAccess()
-            if (!SmsLoginMatcher.target(guarded.peek(), packageName, resourceId)) return SmsLoginStatus.TARGET_UNVERIFIED
             val a11y = ScreenAccessibility.instance.value ?: return SmsLoginStatus.UNAVAILABLE
-            // One-way until this run ends, including declines/timeouts. Never expose post-fill screens.
+            attempted = true
             privacy.begin()
-            if (protection == null) protection = runtime.protect(packageName)
+            protection = runtime.protect(packageName)
+            val cancelled = CompletableDeferred<Unit>()
+            fun authorized() = !cancelled.isCompleted && runtime.settings.state.value.let { it.enabled && it.revision == consent.revision } &&
+                runtime.permitted(context) && runtime.signer(context, packageName) == profile.signer &&
+                access.current().let { it.available && it.denial(packageName) == null }
+            fun dispatch(action: () -> Boolean) = runtime.settings.dispatch(consent.revision) { authorized() && action() }
             return withTimeoutOrNull(180_000) {
                 coroutineScope {
                     val operation = async {
-                        val label = runCatching { context.packageManager.getApplicationLabel(
-                            context.packageManager.getApplicationInfo(packageName, 0)).toString() }.getOrDefault(packageName)
-                        val scope = smsLoginConsent(a11y, access, label, packageName)
-                            ?: return@async SmsLoginStatus.DECLINED_OR_TIMED_OUT
-                        guarded.checkAppAccess()
-                        if (!SmsLoginMatcher.target(guarded.peek(), packageName, resourceId, scope)) return@async SmsLoginStatus.TARGET_UNVERIFIED
-                        val cancelled = CompletableDeferred<Unit>()
                         withSmsListening(a11y, access, cancelled) {
-                            receive(scope, cancelled) {
-                                device.requestSmsLoginCode(packageName, resourceId, sendButtonId, scope) { action ->
-                                    !cancelled.isCompleted && dispatch(consent.revision, packageName, action)
-                                }
-                            }?.let { code ->
-                                try {
-                                    currentCoroutineContext().ensureActive()
-                                    guarded.checkAppAccess()
-                                    val filled = device.fillSmsLoginCode(packageName, resourceId, scope, code) { action ->
-                                        !cancelled.isCompleted && dispatch(consent.revision, packageName, action)
-                                    }
-                                    if (filled) SmsLoginStatus.FILLED else SmsLoginStatus.NOT_FILLED
-                                } finally { code.fill('\u0000') }
-                            } ?: SmsLoginStatus.NOT_FILLED
+                            SmsLoginAutomation(object : SmsLoginDevice {
+                                override suspend fun prepare() = device.prepareSmsLogin(profile, ::dispatch)
+                                override suspend fun receive(request: suspend () -> Boolean) = this@AndroidSmsLogin.receive(profile.scope, cancelled, request, ::authorized)
+                                override suspend fun request() = device.requestSmsLoginCode(profile, ::dispatch)
+                                override suspend fun fill(code: CharArray) = device.fillSmsLoginCode(profile, code, ::dispatch)
+                                override suspend fun submit(code: CharArray) = device.submitSmsLogin(profile, code, ::dispatch)
+                                override suspend fun outcome(code: CharArray) = device.smsLoginOutcome(profile, code)
+                                override fun resumeVerified(code: CharArray) { privacy.resumeVerified(code) }
+                            }, ::authorized).run()
                         }
                     }
                     val revoked = async {
                         runtime.settings.state.first { !it.enabled || it.revision != consent.revision }
+                        cancelled.complete(Unit)
                         SmsLoginStatus.REVOKED
                     }
                     try { select { operation.onAwait { it }; revoked.onAwait { it } } }
                     finally { operation.cancelAndJoin(); revoked.cancelAndJoin() }
                 }
-            } ?: SmsLoginStatus.DECLINED_OR_TIMED_OUT
+            } ?: SmsLoginStatus.LOGIN_UNVERIFIED
         } catch (e: CancellationException) { throw e }
-        catch (_: Exception) {
-            // Only a status leaves this boundary. Exception text may include framework input data.
-            return SmsLoginStatus.UNAVAILABLE
-        } finally { runtime.lock.unlock() }
+        catch (_: Exception) { return SmsLoginStatus.UNAVAILABLE }
+        finally { runtime.lock.unlock() }
     }
 
-    private fun dispatch(revision: Long, pkg: String, action: () -> Boolean): Boolean =
-        runtime.settings.dispatch(revision) {
-            runtime.permitted(context) && access.current().let { it.available && it.denial(pkg) == null } && action()
-        }
-
     private suspend fun receive(scope: SmsLoginScope, cancelled: CompletableDeferred<Unit>,
-        requestCode: suspend () -> Boolean): CharArray? = coroutineScope {
+        requestCode: suspend () -> Boolean, authorized: () -> Boolean): CharArray? = coroutineScope {
         val pending = CompletableDeferred<Unit>()
         val owned = java.util.concurrent.atomic.AtomicReference<CharArray?>()
         val started = System.currentTimeMillis()
         val window = SmsLoginWindow(scope, started)
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
-                if (intent?.action != Telephony.Sms.Intents.SMS_RECEIVED_ACTION || !pending.isActive || !runtime.permitted(this@AndroidSmsLogin.context)) return
+                if (intent?.action != Telephony.Sms.Intents.SMS_RECEIVED_ACTION || !pending.isActive || !authorized()) return
                 try {
                     val parts = Telephony.Sms.Intents.getMessagesFromIntent(intent)
                     if (parts.isEmpty() || parts.size > 10 || parts.any { it.timestampMillis < started / 1000 * 1000 || it.originatingAddress != scope.sender }) return

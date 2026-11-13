@@ -2,16 +2,25 @@
 <resources>
     <string name="sms_login_title">簡訊驗證碼登入（實驗性）</string>
     <string name="sms_login_enable">允許簡訊驗證碼登入</string>
-    <string name="sms_login_default_off">預設關閉 · 每次登入個別確認</string>
-    <string name="sms_login_limits">僅支援原生單一驗證碼欄位。發送方、服務名稱及帳戶數字須與登入頁和簡訊一致。不讀取收件匣；無法確認時手動接管。本次任務之後的手機讀屏與預覽會隱藏。系統或安裝程式可能限制權限。</string>
+    <string name="sms_login_default_off">預設關閉 · 本機可信設定</string>
+    <string name="sms_login_limits">已設定的原生 App 可自動登入，嚴格比對簽章、發送方、服務及帳戶，無須每次確認。證據或權限不足時手動接管。驗證後恢復原生文字讀屏；本次圖像留在本機。</string>
     <string name="sms_login_permission">Android 簡訊權限</string>
     <string name="sms_login_error">權限或儲存失敗。請手動登入並檢查系統權限。</string>
-    <string name="sms_login_disclosure">僅在個別確認的登入任務中接收新簡訊，在本機比對及填入。驗證碼不傳給模型、不記錄或儲存。須另行授予系統權限；關閉立即取消本次授權。</string>
-    <string name="sms_login_consent">授權目前任務在上述 App 請求並填入一次登入碼。依已知簡訊輸入確切發送方、括號內服務名稱及登入頁與簡訊均獨立出現的 4–11 位帳戶數字。不確定請取消；不處理付款、找回或註冊碼。</string>
+    <string name="sms_login_disclosure">僅對此處設定的帳戶及簽章 App 啟用自動登入。Mika 無須再次詢問即可請求、填碼、提交並在本機核驗帳戶。不允許付款、找回或註冊；不儲存或傳送簡訊及驗證碼至模型。關閉或刪除即撤銷。</string>
     <string name="sms_login_sender">確切簡訊發送方</string>
     <string name="sms_login_signature">括號內服務名稱</string>
     <string name="sms_login_account">共同可見帳戶數字（4–11 位）</string>
-    <string name="sms_login_allow_once">僅授權本次</string>
-    <string name="sms_login_listening">正在請求並等待相符登入簡訊（最多 90 秒），不顯示或分享驗證碼。</string>
+    <string name="sms_login_listening">正在自動請求、填入並核驗已設定帳戶，可取消本次操作。</string>
     <string name="sms_login_tool">簡訊驗證碼登入</string>
+    <string name="sms_profile_title">可信服務與帳戶</string>
+    <string name="sms_profile_help">一次設定後，儲存即授權此簽章 App 自動請求驗證碼、填入帳戶與驗證碼、點擊登入並核驗帳戶。須使用已核實的原生資源 ID 和明確的已登入帳戶標誌；每個 App 一個帳戶，可修改或刪除撤銷。使用 Android 金鑰庫在本機加密儲存。</string>
+    <string name="sms_profile_accountvalue">帳戶號碼（僅留在本機）</string>
+    <string name="sms_profile_package">已安裝 App 套件名稱</string>
+    <string name="sms_profile_accountfield">帳戶輸入框資源 ID</string>
+    <string name="sms_profile_codefield">驗證碼輸入框資源 ID</string>
+    <string name="sms_profile_sendbutton">請求驗證碼按鈕資源 ID</string>
+    <string name="sms_profile_loginbutton">最終登入按鈕資源 ID</string>
+    <string name="sms_profile_successview">已登入標誌資源 ID</string>
+    <string name="sms_profile_successtext">已登入標誌的確切文字</string>
+    <string name="sms_profile_successaccount">已登入帳戶元件資源 ID</string>
 </resources>

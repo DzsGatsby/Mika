@@ -2,16 +2,25 @@
 <resources>
     <string name="sms_login_title">تسجيل الدخول برسالة SMS (تجريبي)</string>
     <string name="sms_login_enable">السماح بالدخول عبر SMS</string>
-    <string name="sms_login_default_off">معطّل افتراضيًا · تأكيد كل محاولة</string>
-    <string name="sms_login_limits">حقل أصلي واحد فقط. يجب تطابق المرسل واسم الخدمة وأرقام الحساب في الشاشة والرسالة. لا تُقرأ علبة الوارد. عند الشك استخدم الدخول اليدوي. تُحجب قراءة شاشة الهاتف ومعاينتها لبقية المهمة. قد يقيّد النظام أو برنامج التثبيت الإذن.</string>
+    <string name="sms_login_default_off">معطّل افتراضيًا · ملفات محلية موثوقة</string>
+    <string name="sms_login_limits">دخول آلي للتطبيقات الأصلية المهيأة مع مطابقة التوقيع والمرسل والخدمة والحساب، بلا تأكيد كل مرة. عند نقص الإذن أو دليل النجاح يكون التدخل يدويًا. تُستأنف قراءة النص بعد التحقق وتبقى الصور محلية.</string>
     <string name="sms_login_permission">إذن SMS في Android</string>
     <string name="sms_login_error">فشل الإذن أو الحفظ. سجّل الدخول يدويًا وراجع أذونات النظام.</string>
-    <string name="sms_login_disclosure">تُستقبل الرسائل الجديدة فقط أثناء محاولة دخول مؤكدة بشكل منفصل. تتم المطابقة والإدخال محليًا؛ لا تُرسل الرموز للنموذج ولا تُسجّل أو تُحفظ. يلزم إذن النظام أيضًا. إيقاف الخيار يلغي المحاولة فورًا.</string>
-    <string name="sms_login_consent">اسمح لهذه المهمة بطلب رمز واحد وإدخاله في التطبيق أعلاه. أدخل المرسل الدقيق واسم الخدمة بين الأقواس و4–11 رقمًا للحساب تظهر منفصلة في الشاشة والرسالة معًا. ألغِ عند الشك. تُرفض رموز الدفع والاسترداد والتسجيل.</string>
+    <string name="sms_login_disclosure">اسمح فقط للتطبيقات الموقّعة والحسابات المهيأة هنا. يمكن طلب الرمز وإدخاله وإرسال الدخول والتحقق من الحساب دون سؤال متكرر. لا دفع أو استرداد أو تسجيل جديد. لا تُحفظ الرسائل والرموز ولا تُرسل للنموذج. أوقف الخيار أو احذف الملف لسحب التفويض.</string>
     <string name="sms_login_sender">مرسل SMS الدقيق</string>
     <string name="sms_login_signature">اسم الخدمة بين الأقواس</string>
     <string name="sms_login_account">أرقام الحساب المتطابقة (4–11)</string>
-    <string name="sms_login_allow_once">السماح لهذه المحاولة</string>
-    <string name="sms_login_listening">جارٍ طلب رسالة دخول مطابقة وانتظارها (حتى 90 ثانية). لن يُعرض الرمز أو يُشارك.</string>
+    <string name="sms_login_listening">جارٍ طلب الرمز وإدخاله والتحقق آليًا من الحساب المهيأ. يمكن الإلغاء.</string>
     <string name="sms_login_tool">تسجيل الدخول برسالة SMS</string>
+    <string name="sms_profile_title">الخدمات والحسابات الموثوقة</string>
+    <string name="sms_profile_help">إعداد لمرة واحدة. الحفظ يجيز طلب الرمز وإدخال الحساب والرمز والضغط على الدخول النهائي والتحقق من الحساب في هذا التطبيق الموقّع. يتطلب معرّفات أصلية مراجعة ومؤشرًا واضحًا للحساب المسجّل. حساب واحد لكل تطبيق؛ التعديل أو الحذف يسحب التفويض. يُشفّر محليًا باستخدام Android Keystore.</string>
+    <string name="sms_profile_accountvalue">رقم الحساب (على هذا الجهاز فقط)</string>
+    <string name="sms_profile_package">حزمة التطبيق المثبّت</string>
+    <string name="sms_profile_accountfield">معرّف حقل الحساب</string>
+    <string name="sms_profile_codefield">معرّف حقل الرمز</string>
+    <string name="sms_profile_sendbutton">معرّف زر طلب الرمز</string>
+    <string name="sms_profile_loginbutton">معرّف زر الدخول النهائي</string>
+    <string name="sms_profile_successview">معرّف مؤشر تسجيل الدخول</string>
+    <string name="sms_profile_successtext">النص الدقيق لمؤشر تسجيل الدخول</string>
+    <string name="sms_profile_successaccount">معرّف عرض الحساب المسجّل</string>
 </resources>

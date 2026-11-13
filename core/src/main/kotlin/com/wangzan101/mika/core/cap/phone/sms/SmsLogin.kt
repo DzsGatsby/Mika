@@ -4,15 +4,15 @@ import com.wangzan101.mika.core.uistate.ScreenSnapshot
 
 /** Only status crosses the host boundary. SMS text, sender, account and code stay on device. */
 interface SmsLoginPort {
-    suspend fun fill(packageName: String, resourceId: String, sendButtonId: String): SmsLoginStatus
+    suspend fun login(packageName: String): SmsLoginStatus
 }
 
 enum class SmsLoginStatus {
-    FILLED, DISABLED, PERMISSION_REQUIRED, BUSY, UNAVAILABLE, TARGET_UNVERIFIED,
-    DECLINED_OR_TIMED_OUT, REVOKED, NOT_FILLED,
+    LOGGED_IN, LOGIN_FAILED, LOGIN_UNVERIFIED, NO_TRUSTED_PROFILE, DISABLED, PERMISSION_REQUIRED, BUSY, UNAVAILABLE, TARGET_UNVERIFIED,
+    REVOKED, NOT_FILLED,
 }
 
-/** User-entered, one-attempt scope. Never serialize or put it in a tool argument/result. */
+/** Matching scope. Only an explicitly configured local profile may persist it, never the SMS/code. */
 class SmsLoginScope(val sender: String, val signature: String, val accountMarker: String) {
     val valid: Boolean get() = sender.matches(Regex("[+A-Za-z0-9]{3,24}")) &&
         signature.length in 2..30 && signature.none { it in "【】[]\r\n" } &&

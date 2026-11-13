@@ -111,21 +111,20 @@ class SmsLoginTest {
     @Test fun toolSendsOnlyPublicTargetIdentifiersAndReturnsStatus() = runTest {
         var calls = 0
         val port = object : SmsLoginPort {
-            override suspend fun fill(packageName: String, resourceId: String, sendButtonId: String): SmsLoginStatus {
-                assertEquals(pkg, packageName); assertEquals(rid, resourceId)
-                assertEquals("$pkg:id/send", sendButtonId)
+            override suspend fun login(packageName: String): SmsLoginStatus {
+                assertEquals(pkg, packageName)
                 calls++
-                return SmsLoginStatus.FILLED
+                return SmsLoginStatus.LOGGED_IN
             }
         }
         val dispatcher = toolDispatcher(FakeScreen(), smsLogin = port)
         assertTrue(PhoneSmsLogin.available(dispatcher.ctx))
         assertFalse(PhoneSmsLogin.sandboxCallable)
         assertFalse(PhoneSmsLogin.batchable)
-        val args = Json.parseToJsonElement("""{"app":"$pkg","resourceId":"$rid","sendButtonId":"$pkg:id/send"}""") as kotlinx.serialization.json.JsonObject
+        val args = Json.parseToJsonElement("""{"app":"$pkg"}""") as kotlinx.serialization.json.JsonObject
         val result = PhoneSmsLogin.execute(Args(PhoneSmsLogin.def, args), dispatcher.ctx)
         assertEquals(1, calls)
-        assertTrue(result.content.toString().contains("filled"))
+        assertTrue(result.content.toString().contains("logged_in"))
         assertFalse(result.content.toString().contains("246810"))
         assertFalse(PhoneSmsLogin.available(toolDispatcher(FakeScreen()).ctx))
         val base = com.wangzan101.mika.core.run.RunSpec(com.wangzan101.mika.core.run.RunId("test"), "login", "test")
