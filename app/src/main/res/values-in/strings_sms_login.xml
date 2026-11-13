@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sms_login_title">Login SMS (eksperimental)</string>
+    <string name="sms_login_enable">Izinkan login SMS</string>
+    <string name="sms_login_default_off">Nonaktif secara bawaan · konfirmasi tiap login</string>
+    <string name="sms_login_limits">Hanya satu kolom asli. Pengirim, nama layanan, dan digit akun harus cocok di layar dan SMS. Kotak masuk tidak dibaca. Jika ragu, gunakan cara manual. Pembacaan layar dan pratinjau ponsel disembunyikan selama sisa tugas ini. Sistem atau pemasang dapat membatasi izin.</string>
+    <string name="sms_login_permission">Izin SMS Android</string>
+    <string name="sms_login_error">Izin atau penyimpanan gagal. Login manual dan periksa izin sistem.</string>
+    <string name="sms_login_disclosure">Terima SMS baru hanya saat login yang dikonfirmasi satu per satu. Pencocokan dan pengisian dilakukan di perangkat. Kode tidak dikirim ke model, dicatat, atau disimpan. Izin sistem diperlukan terpisah. Menonaktifkan langsung membatalkan percobaan.</string>
+    <string name="sms_login_consent">Izinkan tugas ini meminta dan mengisi satu kode login di aplikasi di atas. Masukkan pengirim tepat, nama layanan dalam kurung, serta 4–11 digit akun yang muncul terpisah di layar dan SMS. Batalkan jika ragu. Kode pembayaran, pemulihan, dan pendaftaran ditolak.</string>
+    <string name="sms_login_sender">Pengirim SMS tepat</string>
+    <string name="sms_login_signature">Nama layanan dalam kurung</string>
+    <string name="sms_login_account">Digit akun yang cocok (4–11)</string>
+    <string name="sms_login_allow_once">Izinkan percobaan ini</string>
+    <string name="sms_login_listening">Meminta dan menunggu SMS login yang cocok (maksimal 90 detik). Kode tidak ditampilkan atau dibagikan.</string>
+    <string name="sms_login_tool">Login SMS</string>
+</resources>

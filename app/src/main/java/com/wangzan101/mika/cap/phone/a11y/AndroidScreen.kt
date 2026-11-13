@@ -541,6 +541,51 @@ class AndroidScreen(
         typeField(found, text)
     }
 
+    /** SMS-only native input path. Never use the generic clipboard/input fallback or echo values. */
+    suspend fun fillSmsLoginCode(pkg: String, resourceId: String,
+        scope: com.wangzan101.mika.core.cap.phone.sms.SmsLoginScope, code: CharArray,
+        authorize: (() -> Boolean) -> Boolean): Boolean = withContext(Dispatchers.IO) {
+        val current = smsLoginScreen(pkg, resourceId, scope) ?: return@withContext false
+        val field = current.elements.single { it.resourceId == resourceId }
+        val found = findField(field.ref, current.snapshotId, tapToFocus = false) as? Field.Found ?: return@withContext false
+        val node = found.node
+        if (found.relocatedTo != null || inWebView(node) || node.isPassword ||
+            node.packageName?.toString() != pkg || node.viewIdResourceName != resourceId) return@withContext false
+        authorize {
+            // No focus/tap, no retry and no clipboard: SET_TEXT accepts only this exact native node.
+            if (!node.refresh() || !visibleInputTarget(node) || !node.isEnabled) false
+            else setText(node, String(code))
+        }
+    }
+
+    /** Listen first, then request one code on the verified login page. */
+    suspend fun requestSmsLoginCode(pkg: String, resourceId: String, sendButtonId: String,
+        scope: com.wangzan101.mika.core.cap.phone.sms.SmsLoginScope,
+        authorize: (() -> Boolean) -> Boolean): Boolean = withContext(Dispatchers.IO) {
+        val current = smsLoginScreen(pkg, resourceId, scope) ?: return@withContext false
+        if (!sendButtonId.startsWith("$pkg:id/")) return@withContext false
+        val button = current.elements.filter { it.resourceId == sendButtonId }.singleOrNull() ?: return@withContext false
+        if (!button.clickable || button.editable || !Regex("获取验证码|发送验证码|重新获取|重新发送|send.?code|resend", RegexOption.IGNORE_CASE)
+                .containsMatchIn(button.name)) return@withContext false
+        val (node, relocated) = resolve(button.ref, current.snapshotId) ?: return@withContext false
+        if (relocated != null || inWebView(node) || node.packageName?.toString() != pkg || node.viewIdResourceName != sendButtonId) return@withContext false
+        authorize {
+            node.refresh() && node.isEnabled && node.isVisibleToUser && node.isClickable &&
+                node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+        }
+    }
+
+    private suspend fun smsLoginScreen(pkg: String, resourceId: String,
+        scope: com.wangzan101.mika.core.cap.phone.sms.SmsLoginScope): ScreenSnapshot? {
+        if (!hasDisplay) return null
+        // Do not guess which installation/account owns a copied or work-profile app.
+        val top = runCatching { shell.topTaskId(displayId) }.getOrDefault(-1)
+        if (top < 0 || userOf(top) != 0) return null
+        appAccess.current().denial(pkg)?.let { return null }
+        val current = snapshot()
+        return current.takeIf { com.wangzan101.mika.core.cap.phone.sms.SmsLoginMatcher.target(it, pkg, resourceId, scope) }
+    }
+
     private suspend fun typeField(found: Field.Found, text: String): ActionResult {
         var field = found.node
         val original = FieldShape.of(field)

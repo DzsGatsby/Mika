@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sms_login_title">Вход по SMS (экспериментально)</string>
+    <string name="sms_login_enable">Разрешить вход по SMS</string>
+    <string name="sms_login_default_off">По умолчанию выключено · подтверждать каждый вход</string>
+    <string name="sms_login_limits">Только одно нативное поле. Отправитель, имя сервиса и цифры аккаунта должны совпадать на экране и в SMS. Входящие не читаются. При сомнениях — ручной вход. До конца задачи чтение экрана и предпросмотр телефона скрыты. Система или установщик могут ограничить разрешение.</string>
+    <string name="sms_login_permission">Разрешение SMS Android</string>
+    <string name="sms_login_error">Ошибка разрешения или сохранения. Войдите вручную и проверьте разрешения.</string>
+    <string name="sms_login_disclosure">Принимать новые SMS только при отдельно подтверждённом входе. Сопоставление и ввод выполняются на устройстве. Коды не передаются модели, не журналируются и не сохраняются. Нужно отдельное разрешение системы. Выключение немедленно отменяет попытку.</string>
+    <string name="sms_login_consent">Разрешите этой задаче запросить и ввести один код в указанном приложении. Укажите точного отправителя, сервис в скобках и 4–11 цифр аккаунта, отдельно видимых и на экране, и в SMS. При сомнениях отмените. Коды оплаты, восстановления и регистрации отклоняются.</string>
+    <string name="sms_login_sender">Точный отправитель SMS</string>
+    <string name="sms_login_signature">Сервис в скобках</string>
+    <string name="sms_login_account">Совпадающие цифры аккаунта (4–11)</string>
+    <string name="sms_login_allow_once">Разрешить эту попытку</string>
+    <string name="sms_login_listening">Запрос и ожидание подходящего SMS (до 90 секунд). Код не показывается и не передаётся.</string>
+    <string name="sms_login_tool">Вход по SMS</string>
+</resources>

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sms_login_title">ورود با پیامک (آزمایشی)</string>
+    <string name="sms_login_enable">اجازهٔ ورود با پیامک</string>
+    <string name="sms_login_default_off">پیش‌فرض خاموش · تأیید هر ورود</string>
+    <string name="sms_login_limits">فقط یک فیلد بومی. فرستنده، نام سرویس و رقم‌های حساب باید در صفحه و پیامک یکسان باشند. صندوق ورودی خوانده نمی‌شود. در صورت تردید دستی وارد شوید. خواندن و پیش‌نمایش صفحهٔ تلفن تا پایان این کار پنهان می‌شود. سیستم یا نصب‌کننده ممکن است مجوز را محدود کند.</string>
+    <string name="sms_login_permission">مجوز پیامک Android</string>
+    <string name="sms_login_error">مجوز یا ذخیره‌سازی ناموفق بود. دستی وارد شوید و مجوزهای سیستم را بررسی کنید.</string>
+    <string name="sms_login_disclosure">پیامک‌های جدید فقط طی ورود جداگانه تأییدشده دریافت می‌شوند. تطبیق و ورود روی دستگاه است؛ کد به مدل ارسال، ثبت یا ذخیره نمی‌شود. مجوز سیستم جداگانه لازم است. خاموش کردن فوراً تلاش را لغو می‌کند.</string>
+    <string name="sms_login_consent">به این کار اجازه دهید یک کد برای برنامهٔ بالا درخواست و وارد کند. فرستندهٔ دقیق، نام سرویس داخل کروشه و ۴ تا ۱۱ رقم حساب را وارد کنید که جداگانه در صفحه و پیامک دیده می‌شوند. در صورت تردید لغو کنید. کدهای پرداخت، بازیابی و ثبت‌نام رد می‌شوند.</string>
+    <string name="sms_login_sender">فرستندهٔ دقیق پیامک</string>
+    <string name="sms_login_signature">نام سرویس داخل کروشه</string>
+    <string name="sms_login_account">رقم‌های مشترک حساب (۴ تا ۱۱)</string>
+    <string name="sms_login_allow_once">اجازه فقط برای این تلاش</string>
+    <string name="sms_login_listening">درخواست و انتظار پیامک ورود مطابق (تا ۹۰ ثانیه). کد نمایش یا به اشتراک گذاشته نمی‌شود.</string>
+    <string name="sms_login_tool">ورود با پیامک</string>
+</resources>

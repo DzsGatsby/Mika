@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sms_login_title">簡訊驗證碼登入（實驗性）</string>
+    <string name="sms_login_enable">允許簡訊驗證碼登入</string>
+    <string name="sms_login_default_off">預設關閉 · 每次登入個別確認</string>
+    <string name="sms_login_limits">僅支援原生單一驗證碼欄位。發送方、服務名稱及帳戶數字須與登入頁和簡訊一致。不讀取收件匣；無法確認時手動接管。本次任務之後的手機讀屏與預覽會隱藏。系統或安裝程式可能限制權限。</string>
+    <string name="sms_login_permission">Android 簡訊權限</string>
+    <string name="sms_login_error">權限或儲存失敗。請手動登入並檢查系統權限。</string>
+    <string name="sms_login_disclosure">僅在個別確認的登入任務中接收新簡訊，在本機比對及填入。驗證碼不傳給模型、不記錄或儲存。須另行授予系統權限；關閉立即取消本次授權。</string>
+    <string name="sms_login_consent">授權目前任務在上述 App 請求並填入一次登入碼。依已知簡訊輸入確切發送方、括號內服務名稱及登入頁與簡訊均獨立出現的 4–11 位帳戶數字。不確定請取消；不處理付款、找回或註冊碼。</string>
+    <string name="sms_login_sender">確切簡訊發送方</string>
+    <string name="sms_login_signature">括號內服務名稱</string>
+    <string name="sms_login_account">共同可見帳戶數字（4–11 位）</string>
+    <string name="sms_login_allow_once">僅授權本次</string>
+    <string name="sms_login_listening">正在請求並等待相符登入簡訊（最多 90 秒），不顯示或分享驗證碼。</string>
+    <string name="sms_login_tool">簡訊驗證碼登入</string>
+</resources>

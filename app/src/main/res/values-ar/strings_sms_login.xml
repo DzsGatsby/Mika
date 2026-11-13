@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sms_login_title">تسجيل الدخول برسالة SMS (تجريبي)</string>
+    <string name="sms_login_enable">السماح بالدخول عبر SMS</string>
+    <string name="sms_login_default_off">معطّل افتراضيًا · تأكيد كل محاولة</string>
+    <string name="sms_login_limits">حقل أصلي واحد فقط. يجب تطابق المرسل واسم الخدمة وأرقام الحساب في الشاشة والرسالة. لا تُقرأ علبة الوارد. عند الشك استخدم الدخول اليدوي. تُحجب قراءة شاشة الهاتف ومعاينتها لبقية المهمة. قد يقيّد النظام أو برنامج التثبيت الإذن.</string>
+    <string name="sms_login_permission">إذن SMS في Android</string>
+    <string name="sms_login_error">فشل الإذن أو الحفظ. سجّل الدخول يدويًا وراجع أذونات النظام.</string>
+    <string name="sms_login_disclosure">تُستقبل الرسائل الجديدة فقط أثناء محاولة دخول مؤكدة بشكل منفصل. تتم المطابقة والإدخال محليًا؛ لا تُرسل الرموز للنموذج ولا تُسجّل أو تُحفظ. يلزم إذن النظام أيضًا. إيقاف الخيار يلغي المحاولة فورًا.</string>
+    <string name="sms_login_consent">اسمح لهذه المهمة بطلب رمز واحد وإدخاله في التطبيق أعلاه. أدخل المرسل الدقيق واسم الخدمة بين الأقواس و4–11 رقمًا للحساب تظهر منفصلة في الشاشة والرسالة معًا. ألغِ عند الشك. تُرفض رموز الدفع والاسترداد والتسجيل.</string>
+    <string name="sms_login_sender">مرسل SMS الدقيق</string>
+    <string name="sms_login_signature">اسم الخدمة بين الأقواس</string>
+    <string name="sms_login_account">أرقام الحساب المتطابقة (4–11)</string>
+    <string name="sms_login_allow_once">السماح لهذه المحاولة</string>
+    <string name="sms_login_listening">جارٍ طلب رسالة دخول مطابقة وانتظارها (حتى 90 ثانية). لن يُعرض الرمز أو يُشارك.</string>
+    <string name="sms_login_tool">تسجيل الدخول برسالة SMS</string>
+</resources>

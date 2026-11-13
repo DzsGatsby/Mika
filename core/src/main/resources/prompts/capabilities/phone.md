@@ -106,6 +106,7 @@ phone on the main screen at the same time.
 - A 「请稍候」, 「安全验证中」 or loading page that goes away on its own is not a
   blocker yet: wait a few seconds and look again; only if it stays, classify
   it as below.
+<!-- needs: phone_sms_login --> - For an explicitly requested SMS login, phone_sms_login is the opt-in local code-filling route. It requires on-device consent and exact native editor/send-button resource IDs, and returns status only. Never read messages or notifications to obtain a code yourself. Its privacy curtain hides phone observations for the rest of this run; hand over any remaining step and finish.
 - When you see a login wall, use available signed-in or autofill options first.
   If the tools cannot pass it, call handle_obstacle and hand over that step.
   For a CAPTCHA the tools cannot solve, call handle_obstacle and hand over.

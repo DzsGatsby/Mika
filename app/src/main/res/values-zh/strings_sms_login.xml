@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sms_login_title">短信验证码登录（实验性）</string>
+    <string name="sms_login_enable">允许短信验证码登录</string>
+    <string name="sms_login_default_off">默认关闭 · 每次登录单独确认</string>
+    <string name="sms_login_limits">仅支持原生单个验证码框。短信发送方、服务签名和账户数字必须与登录页及短信匹配，不读取收件箱。不支持或无法确认时手工接管。本次任务后续手机读屏及预览会隐藏。Android 或安装器可能限制短信权限。</string>
+    <string name="sms_login_permission">Android 短信权限</string>
+    <string name="sms_login_error">权限或保存失败。请手工登录，并检查系统应用权限。</string>
+    <string name="sms_login_disclosure">仅在每次单独确认的登录任务中接收新短信，在本机匹配并填写。验证码不返回模型、不记录、不保存。系统短信权限需另外授予。关闭开关立即取消当前授权。</string>
+    <string name="sms_login_consent">授权当前任务在上述 App 请求并填写一次登录验证码。请依据已知短信填写准确发送方和括号内的服务名，以及登录页与短信中均作为独立数字出现的 4–11 位账户数字。不确定请取消；支付、找回和注册验证码不会处理。</string>
+    <string name="sms_login_sender">准确的短信发送方</string>
+    <string name="sms_login_signature">短信括号内的服务名</string>
+    <string name="sms_login_account">双方可见的账户数字（4–11 位）</string>
+    <string name="sms_login_allow_once">仅授权本次</string>
+    <string name="sms_login_listening">正在请求并等待匹配的登录短信（最多 90 秒），不会显示或分享验证码。</string>
+    <string name="sms_login_tool">短信验证码登录</string>
+</resources>

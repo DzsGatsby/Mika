@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sms_login_title">Inicio por SMS (experimental)</string>
+    <string name="sms_login_enable">Permitir inicio por SMS</string>
+    <string name="sms_login_default_off">Desactivado por defecto · confirmar cada vez</string>
+    <string name="sms_login_limits">Solo un campo nativo. Deben coincidir remitente, firma del servicio y dígitos de cuenta en pantalla y SMS. No se lee la bandeja de entrada. Si hay dudas, continúe manualmente. Se ocultan las capturas y vistas previas del teléfono durante el resto de esta tarea. El sistema o instalador puede restringir el permiso.</string>
+    <string name="sms_login_permission">Permiso SMS de Android</string>
+    <string name="sms_login_error">Error de permiso o guardado. Inicie sesión manualmente y revise los permisos.</string>
+    <string name="sms_login_disclosure">Recibir SMS nuevos solo durante un inicio confirmado individualmente. Se comparan e introducen en el dispositivo. Los códigos no se envían al modelo, registran ni guardan. Se requiere permiso del sistema. Desactivar cancela el intento inmediatamente.</string>
+    <string name="sms_login_consent">Autorice esta tarea a solicitar e introducir un código en la app indicada. Introduzca el remitente exacto, el servicio entre corchetes y de 4 a 11 dígitos de cuenta que aparezcan separados tanto en pantalla como en el SMS. Cancele si hay dudas. Se rechazan códigos de pago, recuperación y registro.</string>
+    <string name="sms_login_sender">Remitente exacto del SMS</string>
+    <string name="sms_login_signature">Servicio entre corchetes</string>
+    <string name="sms_login_account">Dígitos de cuenta comunes (4–11)</string>
+    <string name="sms_login_allow_once">Autorizar este intento</string>
+    <string name="sms_login_listening">Solicitando y esperando un SMS coincidente (hasta 90 segundos). No se muestra ni comparte el código.</string>
+    <string name="sms_login_tool">Inicio por SMS</string>
+</resources>

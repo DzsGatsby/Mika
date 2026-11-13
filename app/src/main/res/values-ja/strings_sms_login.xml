@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sms_login_title">SMSログイン（試験機能）</string>
+    <string name="sms_login_enable">SMSログインを許可</string>
+    <string name="sms_login_default_off">初期設定はオフ · 毎回確認</string>
+    <string name="sms_login_limits">ネイティブの単一コード欄のみ。送信元・サービス名・口座識別数字が画面とSMSの両方で一致する必要があります。受信箱は読みません。不明な場合は手動操作。以後このタスクの画面取得とプレビューは非表示です。OSやインストーラーが権限を制限する場合があります。</string>
+    <string name="sms_login_permission">Android SMS権限</string>
+    <string name="sms_login_error">権限または保存に失敗しました。手動でログインし、システム権限を確認してください。</string>
+    <string name="sms_login_disclosure">個別に確認したログイン中のみ新着SMSを受信し、端末内で照合・入力します。コードはモデル送信・記録・保存しません。システム権限が別途必要です。オフにすると直ちに取り消します。</string>
+    <string name="sms_login_consent">上記アプリで今回だけログインコードの送信と入力を許可します。既知のSMSの正確な送信元、括弧内のサービス名、画面とSMS双方に独立した数字として表示される4〜11桁のアカウント識別子を入力。不明ならキャンセル。決済・復旧・登録コードは対象外です。</string>
+    <string name="sms_login_sender">正確なSMS送信元</string>
+    <string name="sms_login_signature">括弧内のサービス名</string>
+    <string name="sms_login_account">共通のアカウント数字（4〜11桁）</string>
+    <string name="sms_login_allow_once">今回のみ許可</string>
+    <string name="sms_login_listening">一致するSMSを要求して待機中（最大90秒）。コードは表示・共有しません。</string>
+    <string name="sms_login_tool">SMSログイン</string>
+</resources>

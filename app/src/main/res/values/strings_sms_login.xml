@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sms_login_title">SMS login (experimental)</string>
+    <string name="sms_login_enable">Allow SMS login</string>
+    <string name="sms_login_default_off">Off by default · confirm each login</string>
+    <string name="sms_login_limits">Native single-field login only. Exact SMS sender, service signature and account digits must match the login page and message. No inbox access. Unsupported or ambiguous cases stay manual. Phone observations and previews are hidden for the rest of this task. Android or your installer may prevent SMS permission.</string>
+    <string name="sms_login_permission">Android SMS permission</string>
+    <string name="sms_login_error">Permission or save failed. Keep manual login; check Android app permissions.</string>
+    <string name="sms_login_disclosure">Allow receiving new SMS only during an individually confirmed login attempt. Messages are matched on device; codes are never returned to the model, logged or saved. Android grants the system permission separately. Turn this switch off to cancel an attempt immediately.</string>
+    <string name="sms_login_consent">Authorize this task to request and fill one login code in the app above. Enter the exact sender and bracketed service name from a known message, plus 4–11 account digits visible as a separate number in BOTH the login page and SMS. If unsure, cancel. Payment, recovery and registration codes are refused.</string>
+    <string name="sms_login_sender">Exact SMS sender</string>
+    <string name="sms_login_signature">Service name inside brackets</string>
+    <string name="sms_login_account">Matching account digits (4–11)</string>
+    <string name="sms_login_allow_once">Authorize this attempt</string>
+    <string name="sms_login_listening">Requesting and waiting for a matching login SMS (up to 90 seconds). No code is shown or shared.</string>
+    <string name="sms_login_tool">SMS login</string>
+</resources>
