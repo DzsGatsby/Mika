@@ -941,6 +941,7 @@ class CallRuntime(private val app: MikaApp) {
 
     internal fun onCallChanged(service: MikaInCallService, call: Call) {
         val t = tracked[call]?.takeIf { it.service === service } ?: return
+        if (call.state == Call.STATE_DISCONNECTED) t.taskBinding.end()
         if (t.phase == CallPhase.RINGING && t.initialRingPolicy == null) {
             t.initialRingPolicy = settings.state.value
             t.ringObservedAt = SystemClock.elapsedRealtime()
@@ -955,6 +956,7 @@ class CallRuntime(private val app: MikaApp) {
         if (active != null) {
             if (active.track == null && active.placed && matchesOutgoing(active, t)) {
                 active.track = t
+                t.taskBinding.bind(active.task)
             }
             val target = active.track
             if (target === t && active.direction == CallDirection.OUTGOING &&
@@ -997,6 +999,7 @@ class CallRuntime(private val app: MikaApp) {
 
     internal fun onCallRemoved(service: MikaInCallService, call: Call) {
         val removed = tracked[call]?.takeIf { it.service === service } ?: return
+        removed.taskBinding.end()
         tracked.remove(call)
         if (work?.track === removed) cancelWork(
             if (confirmedEnded(removed)) callEndMessage(removed) else "Android 通话状态已断开，电话由系统处理",
@@ -1704,7 +1707,8 @@ class CallRuntime(private val app: MikaApp) {
         val enabled = config.enabled
         val calls = if (enabled) liveCalls() else emptyList()
         val current = calls.firstOrNull()
-        val soleCallId = calls.singleOrNull()?.id
+        val soleCall = calls.singleOrNull()
+        val soleCallId = soleCall?.id
         if (soleCallId != liveTranscriptCallId) {
             liveTranscriptCallId = soleCallId
             liveTranscript.clear()
@@ -1768,7 +1772,8 @@ class CallRuntime(private val app: MikaApp) {
             autoAnswerPauseRemainingSeconds = pauseSeconds,
             autoAnswerBlockedReason = blocker.takeIf { autoStage == CallAutoAnswerStage.BLOCKED },
             liveTranscript = liveTranscript.toList(),
-            activeTask = active?.takeIf { soleCallId != null && it.track?.id == soleCallId }?.task,
+            activeTask = soleCall?.taskBinding?.visibleFor(soleCall.call,
+                soleCall.service.tracks(soleCall.call), carrierCall(soleCall.call)),
             historyWriteFailed = records.writeFailed.value,
             simOptions = sims.map { it.info },
             shellConnected = shell != null,
@@ -1885,6 +1890,7 @@ class CallRuntime(private val app: MikaApp) {
 
     private class Tracked(val call: Call, val service: MikaInCallService) {
         val id = UUID.randomUUID().toString()
+        val taskBinding = CallTaskBinding(call)
         val dtmfBudget = CallDtmfBudget()
         val number get() = numberOf(call)
         val direction get() = when (call.details?.callDirection) {

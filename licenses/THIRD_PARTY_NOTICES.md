@@ -19,6 +19,9 @@
   (`CallDtmfExecutor`, `ui/CallDtmfKeypad.kt`), protocol/ASR fixes and their unit/UI tests.
   Adapted to Mika voice profiles, provider interface, existing task form, theme and translations;
   FlashPhone standalone navigation, recording and remote-device services are not included.
+- Follow-up port: FlashPhone v1.1.13 (`554e69207de151329f71821f915cde997f8e69fc`),
+  per-carrier-call task binding and compact latest-transcript context; adapted to Mika's
+  existing call card and transcript role labels, with ownership/lifetime regressions.
 - Service: 实时语音经火山引擎（Volcengine）的 WebSocket 接口,凭证由用户在通话设置页填写。
 
 ## scrcpy

@@ -475,6 +475,16 @@ internal fun CurrentCallCard(
                     }
                 }
             }
+            state.liveTranscript.lastOrNull { it.text.isNotBlank() }?.let { latest ->
+                Row(Modifier.fillMaxWidth().testTag("call-current-latest"),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(callTranscriptSpeakerLabel(latest.role)),
+                        style = MaterialTheme.typography.bodySmall, color = MikaTheme.colors.ink3,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 80.dp))
+                    Text(latest.text, style = MaterialTheme.typography.bodySmall, color = MikaTheme.colors.ink2,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                }
+            }
             if (ringing || showTakeover || cancelAuto || state.canHangUp) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp),
                     verticalAlignment = Alignment.CenterVertically) {
@@ -520,7 +530,7 @@ internal fun CurrentCallCard(
 }
 
 @Composable
-private fun LiveCallTranscript(callId: String?, lines: List<CallTranscriptLine>) {
+internal fun LiveCallTranscript(callId: String?, lines: List<CallTranscriptLine>) {
     var expanded by rememberSaveable(callId) { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(R.string.calls_live_transcript), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
