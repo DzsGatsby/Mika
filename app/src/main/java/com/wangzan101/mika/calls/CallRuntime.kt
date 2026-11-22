@@ -23,7 +23,6 @@ import android.telephony.SubscriptionManager
 import android.telephony.TelephonyManager
 import android.util.Log
 import androidx.annotation.MainThread
-import com.wangzan101.mika.R
 import com.wangzan101.mika.i18n.tr
 import com.wangzan101.mika.settings.FeatureFlags
 import android.view.accessibility.AccessibilityEvent
