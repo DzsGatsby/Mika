@@ -40,6 +40,7 @@ object MikaQuit {
         runCatching { app.capsule.stopNow() }
         // 先撤掉系统闹钟和进程内的长任务,再停前台服务;服务被系统重交启动请求时也会按退出标记拒绝工作
         runCatching { TriggerRuntime.suspendAlarms(app) }
+        com.wangzan101.mika.calls.CallStandbyRecoveryJob.reconcile(app, authorized = false)
         runCatching { RuntimePreparer.stop(app) }
         runCatching { app.wechat.stop() }
         // 主动能力开着时不再读通知:请系统解绑监听,免得系统为了它把进程又拉起来

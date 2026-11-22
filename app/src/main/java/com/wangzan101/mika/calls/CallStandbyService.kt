@@ -65,7 +65,10 @@ class CallStandbyService : Service() {
             if (calls?.hasOutgoingForegroundWork() != true || statusJob == null) requestStop(startId)
             return START_NOT_STICKY
         }
-        val incoming = calls.hasAuthorizedIncomingStandby() && (intent == null || calls.isIncomingStandbyStartRequested() || stickyAutoAnswer)
+        val incoming = calls.hasAuthorizedIncomingStandby() && (
+            if (intent == null) Build.VERSION.SDK_INT < 30 || CallStandbyRecoveryJob.allowsBackgroundRecovery(this)
+            else calls.isIncomingStandbyStartRequested() || stickyAutoAnswer
+        )
         if (!notificationAllowed || !CallStandbyPolicy.acceptsStart(incoming, explicit, calls.hasOutgoingForegroundWork())) {
             calls.onStandbyStartFailed(getString(
                 if (notificationAllowed) R.string.calls_standby_not_ready else R.string.calls_standby_notifications_required,
@@ -92,7 +95,8 @@ class CallStandbyService : Service() {
                     state.backgroundStandbyBlockedReason != null -> getString(R.string.calls_standby_unavailable)
                     state.aiActive -> getString(R.string.calls_standby_ai_active)
                     else -> getString(R.string.calls_standby_running)
-                }, state.lockedDialRequestId)
+                }, state.lockedDialRequestId, opensSettings = state.phase == CallPhase.IDLE &&
+                    !lockedDial && state.autoAnswerStage != CallAutoAnswerStage.PAUSED && state.backgroundStandbyBlockedReason != null)
             }.distinctUntilChanged().collect { notice ->
                 if (notice == null) requestStop()
                 else if (runCatching {
@@ -101,7 +105,7 @@ class CallStandbyService : Service() {
             }
         }
         // A null Intent is only accepted when Android restarts this already opted-in service.
-        // Our other recovery path runs only with the unlocked app visible and an existing grant.
+        // Periodic recovery reuses an existing incoming-only grant.
         return if (incoming) START_STICKY else START_NOT_STICKY
     }
 
@@ -120,12 +124,10 @@ class CallStandbyService : Service() {
         super.onDestroy()
     }
 
-    private data class Notice(val summary: String, val requestId: String?)
+    private data class Notice(val summary: String, val requestId: String?, val opensSettings: Boolean = false)
 
     private fun notification(notice: Notice): Notification {
-        val open = PendingIntent.getActivity(this, NOTIFICATION_ID, Intent(this, MainActivity::class.java)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            .putExtra(MainActivity.EXTRA_OPEN_CALLS, true), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        val open = notificationContentIntent(this, notice.opensSettings)
         return Notification.Builder(this, CHANNEL)
             .setSmallIcon(android.R.drawable.sym_action_call)
             .setContentTitle(getString(R.string.app_name))
@@ -153,6 +155,16 @@ class CallStandbyService : Service() {
         private const val ACTION_START = "com.wangzan101.mika.calls.START_STANDBY"
         private const val EXTRA_REQUEST_ID = "standby_start_id"
         private const val NOTIFICATION_ID = 90_118
+        private const val STANDBY_SETTINGS_REQUEST_CODE = 90_120
+
+        internal fun notificationContentIntent(context: Context, opensSettings: Boolean): PendingIntent {
+            val requestCode = if (opensSettings) STANDBY_SETTINGS_REQUEST_CODE else NOTIFICATION_ID
+            val intent = Intent(context, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                .putExtra(MainActivity.EXTRA_OPEN_CALLS, true)
+                .putExtra(MainActivity.EXTRA_OPEN_STANDBY_SETTINGS, opensSettings)
+            return PendingIntent.getActivity(context, requestCode, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        }
 
         internal fun startIntent(context: Context, requestId: String? = null): Intent =
             Intent(context, CallStandbyService::class.java).setAction(ACTION_START).putExtra(EXTRA_REQUEST_ID, requestId)

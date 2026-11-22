@@ -187,6 +187,10 @@ class CallSettings(
         private const val CREDENTIALS = "volc_credentials_v1"
         internal const val BACKGROUND_AUTHORIZED = "background_standby_authorized"
 
+        internal fun hasStoredStandbyAuthorization(context: Context): Boolean =
+            context.getSharedPreferences("mika_call_settings", Context.MODE_PRIVATE)
+                .getBoolean(BACKGROUND_AUTHORIZED, false)
+
         fun create(context: Context): CallSettings =
             CallSettings(context.getSharedPreferences("mika_call_settings", Context.MODE_PRIVATE))
     }

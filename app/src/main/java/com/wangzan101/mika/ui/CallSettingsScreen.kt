@@ -48,7 +48,8 @@ import java.util.Date
 fun CallSettingsScreen(runtime: CallRuntime, onInstructions: (() -> Unit)? = null, onBack: () -> Unit,
     standalone: Boolean = false, onHelperSetup: () -> Unit = {}, onAbout: () -> Unit = {},
     initialHistoryCallId: String? = null,
-    updateAvailable: Boolean = false, focusRequest: Int = 0) {
+    updateAvailable: Boolean = false, focusRequest: Int = 0, standbySettingsSignal: Int = 0,
+    onStandbySettingsOpened: () -> Unit = {}) {
     var instructionsOpen by rememberSaveable { mutableStateOf(false) }
     var voiceProfilesOpen by rememberSaveable { mutableStateOf(false) }
     var handledFocusRequest by rememberSaveable { mutableIntStateOf(0) }
@@ -61,12 +62,19 @@ fun CallSettingsScreen(runtime: CallRuntime, onInstructions: (() -> Unit)? = nul
             handledFocusRequest = focusRequest
         }
     }
+    LaunchedEffect(standbySettingsSignal) {
+        if (standbySettingsSignal != 0) {
+            instructionsOpen = false
+            voiceProfilesOpen = false
+        }
+    }
     when {
         voiceProfilesOpen -> CallVoiceProfilesScreen(runtime) { voiceProfilesOpen = false }
         instructionsOpen -> CallInstructionsScreen(runtime) { instructionsOpen = false }
         else -> workspaceState.SaveableStateProvider("call-workspace") {
             CallSettingsWorkspace(runtime, taskDraft, onBack, onInstructions ?: { instructionsOpen = true },
-                { voiceProfilesOpen = true }, standalone, onHelperSetup, onAbout, updateAvailable, focusRequest, initialHistoryCallId)
+                { voiceProfilesOpen = true }, standalone, onHelperSetup, onAbout, updateAvailable, focusRequest, initialHistoryCallId,
+                standbySettingsSignal, onStandbySettingsOpened)
         }
     }
 }
@@ -78,6 +86,7 @@ private fun CallSettingsWorkspace(
     standalone: Boolean, onHelperSetup: () -> Unit, onAbout: () -> Unit, updateAvailable: Boolean,
     focusRequest: Int,
     initialHistoryCallId: String?,
+    standbySettingsSignal: Int, onStandbySettingsOpened: () -> Unit,
 ) {
     val config by runtime.settings.state.collectAsState()
     val state by runtime.state.collectAsState()
@@ -177,6 +186,15 @@ private fun CallSettingsWorkspace(
         deviceNavigation++
     }
 
+    LaunchedEffect(standbySettingsSignal) {
+        if (standbySettingsSignal != 0) {
+            if (idle && pendingLockedDial == null) {
+                dialog = null
+                openDeviceSettings()
+            }
+            onStandbySettingsOpened()
+        }
+    }
     PageBackground(Modifier.testTag("call-settings")) {
         Column(Modifier.fillMaxSize().navigationBarsPadding().imePadding()) {
             if (standalone) TopBar(stringResource(R.string.app_name), MikaIcons.Gear, ::openDeviceSettings,
@@ -659,6 +677,7 @@ private fun CallPreferencesPage(
     LaunchedEffect(openDeviceRequest) {
         if (openDeviceRequest != lastDeviceRequest) {
             deviceOpen = true
+            backgroundOpen = true
             lastDeviceRequest = openDeviceRequest
         }
     }

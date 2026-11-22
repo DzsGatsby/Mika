@@ -282,6 +282,11 @@
                 android:value="Keeps the user-enabled incoming call assistant available while the screen is locked and carries one user-confirmed outgoing call across screen lock, with a visible ongoing notification and no idle audio capture" />
         </service>
 
+        <service
+            android:name=".calls.CallStandbyRecoveryJob"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+
         <receiver android:name=".calls.CallNotificationAction" android:exported="false" />
 
         <!-- 应用内语音通话:通话期间撑住进程与后台麦克风;通知带挂断动作,锁屏时不打开通话页。 -->

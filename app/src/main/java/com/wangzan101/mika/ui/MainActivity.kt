@@ -93,6 +93,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var monitor: SystemStatusMonitor
     private var requestedConversation by mutableStateOf<String?>(null)
     private var requestedCalls by mutableStateOf(false)
+    private var requestedStandbySettings by mutableIntStateOf(0)
     private var requestedCallHistoryId by mutableStateOf<String?>(null)
     private var voiceCallSignal by mutableIntStateOf(0)
     private var openTeach by mutableStateOf(false)
@@ -121,6 +122,7 @@ class MainActivity : ComponentActivity() {
         }
         requestedConversation = intent.getStringExtra(EXTRA_OPEN_CONVERSATION)
         requestedCalls = intent.getBooleanExtra(EXTRA_OPEN_CALLS, false)
+        takeStandbySettings(intent)
         requestedCallHistoryId = intent.getStringExtra(EXTRA_CALL_HISTORY_ID)
         takeVoiceCall(intent)
         takeTeach(intent)
@@ -141,7 +143,8 @@ class MainActivity : ComponentActivity() {
                 KeyboardDismissArea(Modifier.fillMaxSize()) {
                     MikaRoot(
                         store, monitor, ::perform, requestedConversation, { requestedConversation = null },
-                        requestedCalls, requestedCallHistoryId, { requestedCalls = false; requestedCallHistoryId = null },
+                        requestedCalls, requestedCallHistoryId, requestedStandbySettings,
+                        { requestedCalls = false; requestedCallHistoryId = null },
                         voiceCallSignal,
                         requestedSharedDraft,
                         onSharedDraftOpened = { accepted, draft ->
@@ -169,6 +172,7 @@ class MainActivity : ComponentActivity() {
         shareJob?.cancel()
         requestedConversation = intent.getStringExtra(EXTRA_OPEN_CONVERSATION)
         requestedCalls = intent.getBooleanExtra(EXTRA_OPEN_CALLS, false)
+        takeStandbySettings(intent)
         requestedCallHistoryId = intent.getStringExtra(EXTRA_CALL_HISTORY_ID)
         if (requestedConversation != null || intent.getBooleanExtra(EXTRA_OPEN_TEACH, false)) {
             app.chat.cancelPendingSharedDraft()
@@ -181,6 +185,14 @@ class MainActivity : ComponentActivity() {
         shareInCurrent = true
         shareHandled = false
         receiveShare(intent, inCurrentConversation = true)
+    }
+
+    private fun takeStandbySettings(intent: Intent) {
+        if (!intent.getBooleanExtra(EXTRA_OPEN_STANDBY_SETTINGS, false)) return
+        requestedCalls = true
+        requestedStandbySettings++
+        intent.removeExtra(EXTRA_OPEN_STANDBY_SETTINGS)
+        intent.removeExtra(EXTRA_OPEN_CALLS)
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -256,6 +268,13 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         foreground = true
+        val mika = application as MikaApp
+        com.wangzan101.mika.calls.CallStandbyRecoveryJob.acknowledgeUserOpen(mika)
+        if (com.wangzan101.mika.calls.CallSettings.hasStoredStandbyAuthorization(mika)) {
+            mika.calls.refreshStandbyRecovery()
+        } else {
+            mika.runningCalls?.refreshStandbyRecovery()
+        }
         monitor.refresh()
         // 回到前台时按最新设置查一次自动归档(启动时也查过,这里照顾长期不退出的进程)
         (application as MikaApp).autoArchiveNow()
@@ -364,6 +383,7 @@ class MainActivity : ComponentActivity() {
     companion object {
         const val EXTRA_OPEN_CONVERSATION = "open_conversation"
         const val EXTRA_OPEN_CALLS = "open_calls"
+        internal const val EXTRA_OPEN_STANDBY_SETTINGS = "open_standby_settings"
         const val EXTRA_CALL_HISTORY_ID = "call_history_id"
         const val EXTRA_OPEN_TEACH = "open_teach"
         const val EXTRA_TEACH_GOAL = "teach_goal"
@@ -404,6 +424,7 @@ private fun MikaRoot(
     onConversationOpened: () -> Unit,
     requestedCalls: Boolean,
     requestedCallHistoryId: String?,
+    requestedStandbySettings: Int,
     onCallsOpened: () -> Unit,
     voiceCallSignal: Int,
     sharedDraft: SharedDraftRequest?,
@@ -413,6 +434,8 @@ private fun MikaRoot(
 ) {
     val context = LocalContext.current
     var focusedCallHistoryId by remember { mutableStateOf<String?>(null) }
+    var handledStandbySettings by remember { mutableIntStateOf(0) }
+    var standbySettingsSignal by remember { mutableIntStateOf(0) }
     val personalStart = remember { FeatureFlags.get(context).personalStart() }
     val nav = rememberNavStack(if (personalStart && requestedConversation == null) Route.Personal else Route.Chat)
     var filesFromDrawer by rememberSaveable { mutableStateOf(false) }
@@ -490,9 +513,13 @@ private fun MikaRoot(
             onConversationOpened()
         }
     }
-    LaunchedEffect(requestedCalls, requestedCallHistoryId) {
+    LaunchedEffect(requestedCalls, requestedCallHistoryId, requestedStandbySettings) {
         if (requestedCalls) {
             focusedCallHistoryId = requestedCallHistoryId
+            if (requestedStandbySettings != handledStandbySettings) {
+                handledStandbySettings = requestedStandbySettings
+                standbySettingsSignal++
+            }
             nav.push(Route.Calls)
             onCallsOpened()
         }
@@ -816,7 +843,9 @@ private fun MikaRoot(
             app.chat.openConversation(it)
             nav.reset()
         })
-        Route.Calls -> CallSettingsScreen(app.calls, onBack = back, standalone = true, initialHistoryCallId = focusedCallHistoryId)
+        Route.Calls -> CallSettingsScreen(app.calls, onBack = back, standalone = true,
+            initialHistoryCallId = focusedCallHistoryId, standbySettingsSignal = standbySettingsSignal,
+            onStandbySettingsOpened = { standbySettingsSignal = 0 })
     }
     }
         }

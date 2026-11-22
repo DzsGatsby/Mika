@@ -22,6 +22,10 @@ import android.telecom.VideoProfile
 import android.telephony.SubscriptionManager
 import android.telephony.TelephonyManager
 import android.util.Log
+import androidx.annotation.MainThread
+import com.wangzan101.mika.R
+import com.wangzan101.mika.i18n.tr
+import com.wangzan101.mika.settings.FeatureFlags
 import android.view.accessibility.AccessibilityEvent
 import com.wangzan101.mika.cap.phone.a11y.ScreenAccessibility
 import com.wangzan101.mika.BuildConfig
@@ -189,7 +193,9 @@ class CallRuntime(private val app: MikaApp) {
                 lockedDial?.takeIf { !config.enabled || !config.credentialsConfigured || config.audioMode != it.config.audioMode ||
                     config.activeVoiceProfileId != it.config.activeVoiceProfileId }
                     ?.let { finishLockedDial(it, "电话设置已变更，未执行锁屏拨出") }
-                if (!hasAuthorizedIncomingStandby()) standbyService?.revokeIncomingAuthorization()
+                val authorized = hasAuthorizedIncomingStandby()
+                if (!authorized) standbyService?.revokeIncomingAuthorization()
+                CallStandbyRecoveryJob.reconcile(app, authorized)
                 stopBackgroundStandbyIfUnneeded()
                 val active = work
                 if (active != null && (!config.enabled || !config.credentialsConfigured ||
@@ -267,7 +273,7 @@ class CallRuntime(private val app: MikaApp) {
             // The app can reopen before the on-device audio helper finishes reconnecting.
             // Reevaluate when readiness changes; Android only permits this start while visible.
             combine(app.foreground.visible, state) { visible, _ -> visible }.collect { visible ->
-                val eligible = visible && !standbyStarting && standbyService?.stickyAutoAnswer != true &&
+                val eligible = visible && !configuring && !standbyStarting && standbyService?.stickyAutoAnswer != true &&
                     work == null && lockedDial == null && !unobservedManagedCall && liveCalls().isEmpty() &&
                     hasAuthorizedIncomingStandby() && interactiveForeground() &&
                     autoAnswerBlocker(settings.state.value) == null &&
@@ -290,6 +296,23 @@ class CallRuntime(private val app: MikaApp) {
         if (!requestCallForegroundService(incoming = true)) return@onMain fail(standbyStartError ?: "后台待命未启动")
         state.first { !it.backgroundStandbyStarting }
         if (isIncomingStandbyRunning()) ok("后台待命已启动") else fail(standbyStartError ?: "后台待命未启动")
+    }
+
+    @MainThread
+    internal fun refreshStandbyRecovery() {
+        CallStandbyRecoveryJob.reconcile(app, hasAuthorizedIncomingStandby())
+    }
+
+    /** A periodic check never restores outgoing work or overrides an explicit stop. */
+    @MainThread
+    internal fun restoreAuthorizedStandbyFromSystem(requireBatteryExemption: Boolean) {
+        refreshStandbyRecovery()
+        if (!hasAuthorizedIncomingStandby() ||
+            (requireBatteryExemption && !CallStandbyRecoveryJob.allowsScheduledForegroundStart(app)) ||
+            !CallStandbyRecoveryJob.allowsBackgroundRecovery(app) ||
+            configuring || standbyStarting || isIncomingStandbyRunning() || hasOutgoingForegroundWork() ||
+            !CallStandbyService.notificationsAvailable(app, create = true)) return
+        requestCallForegroundService(incoming = true)
     }
 
     private fun requestCallForegroundService(incoming: Boolean): Boolean {
@@ -320,7 +343,7 @@ class CallRuntime(private val app: MikaApp) {
 
     private fun isStandbyOptedIn(): Boolean = CallStandbyPolicy.optedIn(settings.state.value, userUnlocked())
 
-    internal fun hasAuthorizedIncomingStandby(): Boolean = isStandbyOptedIn() && settings.state.value.backgroundStandbyAuthorized
+    internal fun hasAuthorizedIncomingStandby(): Boolean = isStandbyOptedIn() && settings.state.value.backgroundStandbyAuthorized && !FeatureFlags.get(app).quitRequested()
 
     private fun isIncomingStandbyRunning(): Boolean = standbyService?.stickyAutoAnswer == true && hasAuthorizedIncomingStandby()
 
@@ -1790,6 +1813,7 @@ class CallRuntime(private val app: MikaApp) {
             app.getString(R.string.calls_pick_types) else "自动接听名单为空"
         config.incomingScope == IncomingScope.TYPES && ScreenAccessibility.instance.value == null ->
             app.getString(R.string.calls_type_accessibility)
+        config.enabled && shell == null && !configuring -> tr(R.string.calls_setup_shell)
         else -> prerequisite(ignoreWork = true, notificationReady = notificationReady)
             ?: if (!audioReady) audioDetail ?: "设备通话音频尚未准备好" else null
     }
