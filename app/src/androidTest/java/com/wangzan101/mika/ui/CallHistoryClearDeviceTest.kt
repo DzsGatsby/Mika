@@ -86,6 +86,20 @@ class CallHistoryClearDeviceTest {
         compose.runOnIdle { assertEquals(1, calls) }
     }
 
+    @Test fun clearingSearchPreservesStatusFilterAndResetRestoresAllRecords() {
+        var cleared = 0
+        showHistory(listOf(record)) { cleared++; CallActionResult(true, "ok") }
+        val done = compose.onNodeWithTag("call-history-filter-done")
+        done.performScrollTo().performClick().assertIsSelected()
+        compose.onNodeWithTag("call-history-search").performScrollTo().performTextInput("unmatched")
+        compose.onNodeWithTag("call-history-clear-search").performScrollTo().performClick()
+        done.assertIsSelected()
+        compose.onNodeWithTag("call-history-reset-filters").performScrollTo().performClick()
+        compose.onNodeWithTag("call-history-filter-all").assertIsSelected()
+        compose.onNodeWithText("fixture result", substring = true).assertExists()
+        compose.runOnIdle { assertEquals(0, cleared) }
+    }
+
     @Test fun unreadableEmptyHistoryStillOffersClear() {
         var calls = 0
         compose.setContent {

@@ -14,8 +14,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
 import com.wangzan101.mika.R
@@ -32,7 +34,13 @@ import com.wangzan101.mika.ui.theme.MikaTheme
 /** A private draft in the workspace, never a saved call profile or background request. */
 @Stable
 internal class CallTaskDraft {
-    var number by mutableStateOf("")
+    var numberInput by mutableStateOf(TextFieldValue())
+    var number: String
+        get() = numberInput.text
+        set(value) { numberInput = TextFieldValue(value, TextRange(value.length)) }
+
+    internal fun insertNumberKey(key: String) = replaceNumberSelection(numberInput, key).also { numberInput = it }
+    internal fun deleteNumberKey() { numberInput = deleteNumberSelection(numberInput) }
     var goal by mutableStateOf("")
     var questions by mutableStateOf("")
     var context by mutableStateOf("")
@@ -54,21 +62,23 @@ internal class CallTaskDraft {
 
     fun snapshotFields(): List<String> = listOf(number, goal, questions, context, constraints, simOverride.orEmpty())
 
+    fun restoreFields(fields: List<String>) {
+        require(fields.size == 6)
+        number = fields[0]
+        goal = fields[1]
+        questions = fields[2]
+        context = fields[3]
+        constraints = fields[4]
+        simOverride = fields[5].takeIf(String::isNotEmpty)
+    }
+
+    fun clear() = restoreFields(List(6) { "" })
+
     companion object {
         val Saver = listSaver<CallTaskDraft, String>(
-            save = { draft -> listOf(draft.number, draft.goal, draft.questions, draft.context,
-                draft.constraints, draft.simOverride.orEmpty()) },
+            save = { it.snapshotFields() },
             restore = { fields ->
-                fields.takeIf { it.size == 6 }?.let {
-                    CallTaskDraft().apply {
-                        number = it[0]
-                        goal = it[1]
-                        questions = it[2]
-                        context = it[3]
-                        constraints = it[4]
-                        simOverride = it[5].takeIf(String::isNotEmpty)
-                    }
-                }
+                fields.takeIf { it.size == 6 }?.let { CallTaskDraft().apply { restoreFields(it) } }
             },
         )
     }
@@ -95,6 +105,11 @@ internal fun CallTaskScreen(
     var constraintsOpen by rememberSaveable { mutableStateOf(false) }
     var showSims by rememberSaveable { mutableStateOf(false) }
     var review by remember { mutableStateOf<CallTaskSubmission?>(null) }
+    var keypadOpen by rememberSaveable { mutableStateOf(false) }
+    // Undo is intentionally memory-only; the state saver never stores cleared values.
+    var clearedDraft by remember(draft) { mutableStateOf<List<String>?>(null) }
+    val draftEmpty = draft.snapshotFields().all(String::isEmpty)
+    LaunchedEffect(draftEmpty) { if (!draftEmpty) clearedDraft = null }
     val number = CallPolicy.outgoingNumber(draft.number)
     val goalLength = draft.goal.trim().length
     val maxGoal = CallTaskBrief.MAX_GOAL_CHARS
@@ -113,7 +128,7 @@ internal fun CallTaskScreen(
     feedback?.let { CallFeedback(it) }
     Column(Modifier.fillMaxWidth().testTag("call-task-fields"), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         OutlinedTextField(
-            draft.number, { draft.number = it }, enabled = editable,
+            draft.numberInput, { draft.numberInput = it }, enabled = editable,
             label = { Text(stringResource(R.string.calls_number)) },
             modifier = Modifier.fillMaxWidth().testTag("call-number"), singleLine = true,
             textStyle = TextStyle(textDirection = TextDirection.Ltr),
@@ -123,6 +138,25 @@ internal fun CallTaskScreen(
                 Text(stringResource(R.string.calls_task_number_hint))
             }) else null,
         )
+        TextButton(onClick = { keypadOpen = !keypadOpen }, enabled = editable,
+            modifier = Modifier.testTag("call-dial-keypad-toggle")) {
+            Text(stringResource(if (keypadOpen) R.string.calls_hide_dialpad else R.string.calls_show_dialpad))
+        }
+        if (keypadOpen) {
+            for (row in listOf("123", "456", "789", "+0⌫")) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    for (key in row) {
+                        val backspace = key == '⌫'
+                        OutlinedButton(onClick = {
+                            if (backspace) draft.deleteNumberKey() else draft.insertNumberKey(key.toString())
+                        }, enabled = editable && (!backspace || draft.numberInput.selection.max > 0),
+                            modifier = Modifier.weight(1f).testTag(if (backspace) "call-dial-backspace" else "call-dial-key-$key"),
+                            contentPadding = PaddingValues(6.dp),
+                        ) { Text(if (backspace) stringResource(R.string.calls_delete_digit) else key.toString()) }
+                    }
+                }
+            }
+        }
         OutlinedTextField(
             draft.goal, { draft.goal = it }, enabled = editable,
             label = { Text(stringResource(R.string.calls_task_goal)) },
@@ -133,6 +167,21 @@ internal fun CallTaskScreen(
                 Text(stringResource(R.string.calls_task_limit, goalLength, maxGoal))
             }) else null,
         )
+    }
+    if (!draftEmpty) {
+        TextButton(onClick = {
+            clearedDraft = draft.snapshotFields()
+            draft.clear()
+        }, enabled = editable, modifier = Modifier.testTag("call-task-clear")) {
+            Text(stringResource(R.string.calls_clear_draft))
+        }
+    } else if (clearedDraft != null) {
+        TextButton(onClick = {
+            if (draft.snapshotFields().all(String::isEmpty)) clearedDraft?.let(draft::restoreFields)
+            clearedDraft = null
+        }, enabled = editable, modifier = Modifier.testTag("call-task-undo-clear")) {
+            Text(stringResource(R.string.undo))
+        }
     }
     Spacer(Modifier.height(8.dp))
     GroupCard {

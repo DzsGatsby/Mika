@@ -9,6 +9,7 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -147,6 +148,12 @@ internal fun CallHistorySection(
             query, { query = it; showAll = false }, singleLine = true,
             label = { Text(stringResource(R.string.calls_history_search)) },
             leadingIcon = { Icon(MikaIcons.Search, contentDescription = null) },
+            trailingIcon = if (query.isNotEmpty()) ({
+                IconButton(onClick = { query = ""; showAll = false; expanded = null },
+                    modifier = Modifier.testTag("call-history-clear-search")) {
+                    Icon(MikaIcons.Close, stringResource(R.string.browser_clear_input))
+                }
+            }) else null,
             modifier = Modifier.fillMaxWidth().testTag("call-history-search"),
         )
         FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -160,6 +167,16 @@ internal fun CallHistorySection(
         }
         if (results.isEmpty()) {
             GroupCard { ListRow(MikaIcons.Search, stringResource(R.string.calls_history_no_match), first = true) }
+            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                TextButton(onClick = {
+                    query = ""
+                    filter = HistoryFilter.ALL
+                    showAll = false
+                    expanded = null
+                }, modifier = Modifier.testTag("call-history-reset-filters")) {
+                    Text(stringResource(R.string.calls_reset_history_filters))
+                }
+            }
         } else GroupCard {
             val visible = if (showAll) results else results.take(3)
             visible.forEachIndexed { index, record ->
