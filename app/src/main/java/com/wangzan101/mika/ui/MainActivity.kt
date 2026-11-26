@@ -162,7 +162,7 @@ class MainActivity : ComponentActivity() {
     private var requestedCalls by mutableStateOf(false)
     private var requestedCallHistoryId by mutableStateOf<String?>(null)
     private var voiceCallSignal by mutableIntStateOf(0)
-    private var callStandbySignal by mutableIntStateOf(0)
+    private var requestedCallStandby by mutableStateOf(false)
     private var openTeach by mutableStateOf(false)
     private var requestedSharedDraft by mutableStateOf<SharedDraftRequest?>(null)
     private var shareJob: Job? = null
@@ -198,8 +198,6 @@ class MainActivity : ComponentActivity() {
         takeTeach(intent)
         shareInCurrent = savedInstanceState?.getBoolean(STATE_SHARE_IN_CURRENT, false) ?: false
         shareHandled = savedInstanceState?.getBoolean(STATE_SHARE_HANDLED, false) ?: false
-        // 计数跨重建保留,界面层「已处理到第几次」的记号才对得上
-        callStandbySignal = maxOf(callStandbySignal, savedInstanceState?.getInt(STATE_CALL_STANDBY_SIGNAL, 0) ?: 0)
         verifiedShareUris = savedInstanceState?.getStringArrayList(STATE_VERIFIED_SHARE_URIS).orEmpty()
         // 已处理完的分享在旋转/重建时不重复触发;真正的冷启动分享或尚未完成的后台分享继续收下。
         if (!shareHandled && (savedInstanceState == null || isShareIntent(intent))) {
@@ -231,7 +229,8 @@ class MainActivity : ComponentActivity() {
                         },
                         openTeach = openTeach,
                         onTeachOpened = { openTeach = false },
-                        callStandbySignal = callStandbySignal,
+                        requestedCallStandby = requestedCallStandby,
+                        onCallStandbyOpened = { requestedCallStandby = false },
                     )
                 }
             }
@@ -269,7 +268,6 @@ class MainActivity : ComponentActivity() {
         super.onSaveInstanceState(outState)
         outState.putBoolean(STATE_SHARE_IN_CURRENT, shareInCurrent)
         outState.putBoolean(STATE_SHARE_HANDLED, shareHandled)
-        outState.putInt(STATE_CALL_STANDBY_SIGNAL, callStandbySignal)
         if (!shareHandled && verifiedShareUris.isNotEmpty()) {
             outState.putStringArrayList(STATE_VERIFIED_SHARE_URIS, ArrayList(verifiedShareUris))
         }
@@ -435,10 +433,10 @@ class MainActivity : ComponentActivity() {
         intent.removeExtra(EXTRA_OPEN_VOICE_CALL)
     }
 
-    /** 待命通知「去处理」直开电话页的待命检查:信号 +1 交给界面层;读一次就摘掉,旋转不重复触发。 */
+    /** 待命通知「去处理」直开电话页的待命检查:一次性请求,电话页打开检查页后清掉;读一次就摘掉,旋转不重复触发。 */
     private fun takeCallStandby(intent: Intent) {
         if (!intent.getBooleanExtra(EXTRA_OPEN_CALL_STANDBY, false)) return
-        callStandbySignal++
+        requestedCallStandby = true
         intent.removeExtra(EXTRA_OPEN_CALL_STANDBY)
     }
 
@@ -452,7 +450,6 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_OPEN_VOICE_CALL = "open_voice_call"
         private const val STATE_SHARE_IN_CURRENT = "share_in_current"
         private const val STATE_SHARE_HANDLED = "share_handled"
-        private const val STATE_CALL_STANDBY_SIGNAL = "call_standby_signal"
         private const val STATE_VERIFIED_SHARE_URIS = "verified_share_uris"
         private const val TAG = "MikaMain"
 
@@ -515,7 +512,8 @@ private fun MikaRoot(
     onSharedDraftOpened: (Boolean, SharedDraft) -> Unit,
     openTeach: Boolean,
     onTeachOpened: () -> Unit,
-    callStandbySignal: Int = 0,
+    requestedCallStandby: Boolean = false,
+    onCallStandbyOpened: () -> Unit = {},
 ) {
     val context = LocalContext.current
     var focusedCallHistoryId by remember { mutableStateOf<String?>(null) }
@@ -623,10 +621,9 @@ private fun MikaRoot(
             onCallsOpened()
         }
     }
-    var handledCallStandby by rememberSaveable { mutableIntStateOf(0) }
-    LaunchedEffect(callStandbySignal) {
-        if (callStandbySignal > handledCallStandby) {
-            handledCallStandby = callStandbySignal
+    // 只负责把电话页摆到最上面;请求留到电话页真的打开检查页时才清(onCallStandbyOpened)
+    LaunchedEffect(requestedCallStandby) {
+        if (requestedCallStandby) {
             focusedCallHistoryId = null
             nav.bringToTop(Route.Calls)
         }
@@ -984,7 +981,8 @@ private fun MikaRoot(
             nav.reset()
         })
         Route.Calls -> CallSettingsScreen(app.calls, onBack = back, initialHistoryCallId = focusedCallHistoryId,
-            standbyRequest = callStandbySignal, onOpenVoiceCatalog = { nav.push(Route.VoiceServices) })
+            openStandbyChecklist = requestedCallStandby, onStandbyChecklistOpened = onCallStandbyOpened,
+            onOpenVoiceCatalog = { nav.push(Route.VoiceServices) })
     }
     }
         }

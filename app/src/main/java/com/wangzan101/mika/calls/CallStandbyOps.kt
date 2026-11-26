@@ -72,16 +72,29 @@ internal fun CallRuntime.refreshStandbyRecovery() {
 @MainThread
 internal fun CallRuntime.restoreAuthorizedStandbyFromSystem() {
     refreshStandbyRecovery()
+    if (mayRequestIncomingStandby(StandbyTrigger.Scheduled)) requestCallForegroundService(incoming = true)
+}
+
+/** Reads the runtime once and applies the shared start rule for [trigger]. */
+internal fun CallRuntime.mayRequestIncomingStandby(trigger: StandbyTrigger): Boolean {
     val authorized = hasAuthorizedIncomingStandby()
-    val allowed = CallStandbyPolicy.scheduledStartAllowed(
-        authorized = authorized,
-        ownerStopped = authorized && CallStandbyOwnerStop.stopped(app),
-        systemAllowsStart = CallStandbyRecoveryJob.systemAllowsScheduledStart(app),
+    // Cheap answer first: without the grant nothing else needs reading.
+    if (!authorized) return false
+    return CallStandbyPolicy.mayRequestIncomingStandby(StandbyStartSnapshot(
+        authorized = true,
+        autoAnswerReady = autoAnswerBlocker(settings.state.value) == null,
         notificationsAllowed = CallStandbyService.notificationsAvailable(app, create = true),
-        busy = configuring || standbyStarting || isIncomingStandbyRunning() || hasOutgoingForegroundWork() ||
-            work != null || lockedDial != null || liveCalls().isNotEmpty(),
-    )
-    if (allowed) requestCallForegroundService(incoming = true)
+        configuring = configuring,
+        starting = standbyStarting,
+        running = standbyService?.stickyAutoAnswer == true,
+        callWork = work != null,
+        lockedDial = lockedDial != null,
+        liveCall = liveCalls().isNotEmpty(),
+        unobservedManagedCall = unobservedManagedCall,
+        outgoingForegroundWork = hasOutgoingForegroundWork(),
+        interactiveForeground = trigger == StandbyTrigger.Visible && interactiveForeground(),
+        systemAllowsScheduledStart = trigger == StandbyTrigger.Scheduled && CallStandbyRecoveryJob.systemAllowsScheduledStart(app),
+    ), trigger)
 }
 
 internal fun CallRuntime.isIncomingStandbyRunning(): Boolean = standbyService?.stickyAutoAnswer == true && hasAuthorizedIncomingStandby()

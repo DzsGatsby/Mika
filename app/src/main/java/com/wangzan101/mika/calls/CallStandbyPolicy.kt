@@ -22,26 +22,28 @@ internal object CallStandbyPolicy {
         userUnlocked && (interactiveForeground || serviceRunning && notificationsAllowed)
 
     /**
-     * The periodic recovery check stays scheduled while the owner's grant stands (it survives reboot
-     * as a persisted job) and they have not stopped Mika. Android 10 keeps the plain sticky restart.
+     * The one rule for asking Android to (re)start the owner's incoming standby without a tap on the
+     * standby button. Both triggers need the stored grant, a ready auto-answer setup, notifications
+     * and nothing else in progress. Only how Android lets the start happen differs: [StandbyTrigger.Visible]
+     * needs Mika in the interactive foreground, [StandbyTrigger.Scheduled] needs Android to let a job
+     * start a foreground service. Outgoing work is never restarted from here.
      */
-    fun keepsRecoveryScheduled(sdk: Int, authorized: Boolean, ownerStopped: Boolean): Boolean =
-        sdk >= 30 && authorized && !ownerStopped
+    fun mayRequestIncomingStandby(s: StandbyStartSnapshot, trigger: StandbyTrigger): Boolean {
+        val common = s.authorized && s.autoAnswerReady && s.notificationsAllowed && !s.configuring &&
+            !s.starting && !s.running && !s.callWork && !s.lockedDial && !s.liveCall && !s.unobservedManagedCall &&
+            !s.outgoingForegroundWork
+        return common && when (trigger) {
+            StandbyTrigger.Visible -> s.interactiveForeground
+            StandbyTrigger.Scheduled -> s.systemAllowsScheduledStart
+        }
+    }
 
     /**
-     * A periodic check only re-requests the incoming standby the owner already granted, and only when
-     * Android lets a job start it; otherwise it waits for the next run. It never starts outgoing work.
+     * Without a battery-optimisation exemption Android 12+ refuses a foreground-service start from a
+     * job; earlier versions only need the app not to be background-restricted.
      */
-    fun scheduledStartAllowed(authorized: Boolean, ownerStopped: Boolean, systemAllowsStart: Boolean,
-        notificationsAllowed: Boolean, busy: Boolean): Boolean =
-        authorized && !ownerStopped && systemAllowsStart && notificationsAllowed && !busy
-
-    /** Android restarting the sticky service is refused after an owner stop, like the periodic check. */
-    fun acceptsStickyRestart(sdk: Int, ownerStopped: () -> Boolean): Boolean = sdk < 30 || !ownerStopped()
-
-    /** The repair page can prepare Telecom only after the audio helper connects (FlashPhone v1.1.15). */
-    fun needsHelperBeforePreparing(enabled: Boolean, helperConnected: Boolean, configuring: Boolean): Boolean =
-        enabled && !helperConnected && !configuring
+    fun systemAllowsScheduledStart(sdk: Int, backgroundRestricted: Boolean, ignoringBatteryOptimizations: Boolean): Boolean =
+        !backgroundRestricted && (sdk < 31 || ignoringBatteryOptimizations)
 
     /** 不限时长(0)按最大档给预算;锁自然到期后由运行中的看门狗重新拿。 */
     fun activeWakeBudgetMs(maxCallSeconds: Int): Long =
@@ -66,3 +68,22 @@ internal suspend fun awaitCallForegroundReady(isStarting: () -> Boolean, isReady
         while (isStarting()) delay(25L)
         isReady()
     } ?: false
+
+internal enum class StandbyTrigger { Visible, Scheduled }
+
+/** What [CallStandbyPolicy.mayRequestIncomingStandby] needs to know, read from the runtime at one moment. */
+internal data class StandbyStartSnapshot(
+    val authorized: Boolean,
+    val autoAnswerReady: Boolean,
+    val notificationsAllowed: Boolean,
+    val configuring: Boolean = false,
+    val starting: Boolean = false,
+    val running: Boolean = false,
+    val callWork: Boolean = false,
+    val lockedDial: Boolean = false,
+    val liveCall: Boolean = false,
+    val unobservedManagedCall: Boolean = false,
+    val outgoingForegroundWork: Boolean = false,
+    val interactiveForeground: Boolean = false,
+    val systemAllowsScheduledStart: Boolean = false,
+)

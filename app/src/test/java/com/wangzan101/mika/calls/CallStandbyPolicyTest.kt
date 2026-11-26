@@ -73,42 +73,46 @@ class CallStandbyPolicyTest {
         assertTrue(resume.take(visible = true, eligible = true))
     }
 
-    @Test fun recoveryStaysScheduledThroughPermissionLossAndStartsOnceItReturns() {
-        // The schedule follows only the grant and the owner's stop, not battery or notification permission.
-        assertTrue(CallStandbyPolicy.keepsRecoveryScheduled(sdk = 30, authorized = true, ownerStopped = false))
-        assertFalse(CallStandbyPolicy.keepsRecoveryScheduled(sdk = 29, authorized = true, ownerStopped = false))
-        assertFalse(CallStandbyPolicy.keepsRecoveryScheduled(sdk = 34, authorized = false, ownerStopped = false))
-        assertFalse(CallStandbyPolicy.keepsRecoveryScheduled(sdk = 34, authorized = true, ownerStopped = true))
+    private val ready = StandbyStartSnapshot(
+        authorized = true, autoAnswerReady = true, notificationsAllowed = true,
+        interactiveForeground = true, systemAllowsScheduledStart = true,
+    )
 
-        fun run(systemAllowsStart: Boolean, notificationsAllowed: Boolean) = CallStandbyPolicy.scheduledStartAllowed(
-            authorized = true, ownerStopped = false, systemAllowsStart = systemAllowsStart,
-            notificationsAllowed = notificationsAllowed, busy = false,
+    @Test fun bothTriggersShareTheGrantReadinessAndBusyChecks() {
+        val blockers = listOf(
+            ready.copy(authorized = false), ready.copy(autoAnswerReady = false), ready.copy(notificationsAllowed = false),
+            ready.copy(configuring = true), ready.copy(starting = true), ready.copy(running = true),
+            ready.copy(callWork = true), ready.copy(lockedDial = true), ready.copy(liveCall = true),
+            ready.copy(unobservedManagedCall = true), ready.copy(outgoingForegroundWork = true),
         )
-        assertFalse(run(systemAllowsStart = false, notificationsAllowed = true))
-        assertFalse(run(systemAllowsStart = true, notificationsAllowed = false))
-        assertTrue(run(systemAllowsStart = true, notificationsAllowed = true))
+        for (trigger in StandbyTrigger.entries) {
+            assertTrue(trigger.name, CallStandbyPolicy.mayRequestIncomingStandby(ready, trigger))
+            blockers.forEach { assertFalse("$trigger $it", CallStandbyPolicy.mayRequestIncomingStandby(it, trigger)) }
+        }
     }
 
-    @Test fun scheduledStartNeverOverridesAStopAMissingGrantOrRunningWork() {
-        fun run(authorized: Boolean = true, ownerStopped: Boolean = false, busy: Boolean = false) =
-            CallStandbyPolicy.scheduledStartAllowed(authorized, ownerStopped, systemAllowsStart = true,
-                notificationsAllowed = true, busy = busy)
-        assertFalse(run(authorized = false))
-        assertFalse(run(ownerStopped = true))
-        assertFalse(run(busy = true))
-        assertTrue(run())
+    @Test fun onlyHowAndroidPermitsTheStartDiffersByTrigger() {
+        val hidden = ready.copy(interactiveForeground = false)
+        assertFalse(CallStandbyPolicy.mayRequestIncomingStandby(hidden, StandbyTrigger.Visible))
+        assertTrue(CallStandbyPolicy.mayRequestIncomingStandby(hidden, StandbyTrigger.Scheduled))
+
+        val noExemption = ready.copy(systemAllowsScheduledStart = false)
+        assertTrue(CallStandbyPolicy.mayRequestIncomingStandby(noExemption, StandbyTrigger.Visible))
+        assertFalse(CallStandbyPolicy.mayRequestIncomingStandby(noExemption, StandbyTrigger.Scheduled))
     }
 
-    @Test fun stickyRestartIsRefusedAfterAnOwnerStopOnlyWhereAndroidReportsIt() {
-        assertTrue(CallStandbyPolicy.acceptsStickyRestart(29) { error("no exit history before Android 11") })
-        assertTrue(CallStandbyPolicy.acceptsStickyRestart(30) { false })
-        assertFalse(CallStandbyPolicy.acceptsStickyRestart(30) { true })
+    @Test fun permissionLossMakesTheScheduledCheckWaitAndItsReturnRearms() {
+        val lost = ready.copy(notificationsAllowed = false, systemAllowsScheduledStart = false)
+        assertFalse(CallStandbyPolicy.mayRequestIncomingStandby(lost, StandbyTrigger.Scheduled))
+        assertTrue(CallStandbyPolicy.mayRequestIncomingStandby(lost.copy(notificationsAllowed = true,
+            systemAllowsScheduledStart = true), StandbyTrigger.Scheduled))
     }
 
-    @Test fun preparingWaitsForTheHelperOnlyWhileTheFeatureIsOnAndIdle() {
-        assertTrue(CallStandbyPolicy.needsHelperBeforePreparing(enabled = true, helperConnected = false, configuring = false))
-        assertFalse(CallStandbyPolicy.needsHelperBeforePreparing(enabled = true, helperConnected = true, configuring = false))
-        assertFalse(CallStandbyPolicy.needsHelperBeforePreparing(enabled = true, helperConnected = false, configuring = true))
-        assertFalse(CallStandbyPolicy.needsHelperBeforePreparing(enabled = false, helperConnected = false, configuring = false))
+    @Test fun batteryExemptionIsRequiredForAScheduledStartOnlyFromAndroid12() {
+        assertTrue(CallStandbyPolicy.systemAllowsScheduledStart(30, backgroundRestricted = false, ignoringBatteryOptimizations = false))
+        assertFalse(CallStandbyPolicy.systemAllowsScheduledStart(31, backgroundRestricted = false, ignoringBatteryOptimizations = false))
+        assertTrue(CallStandbyPolicy.systemAllowsScheduledStart(31, backgroundRestricted = false, ignoringBatteryOptimizations = true))
+        assertFalse(CallStandbyPolicy.systemAllowsScheduledStart(29, backgroundRestricted = true, ignoringBatteryOptimizations = true))
+        assertFalse(CallStandbyPolicy.systemAllowsScheduledStart(34, backgroundRestricted = true, ignoringBatteryOptimizations = true))
     }
 }

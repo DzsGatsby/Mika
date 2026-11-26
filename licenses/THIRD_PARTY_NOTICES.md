@@ -22,13 +22,13 @@
   per-carrier-call task binding and compact latest-transcript context; adapted to Mika's
   existing call card and transcript role labels, with ownership/lifetime regressions.
 - Follow-up port: FlashPhone v1.1.14 (`4f61f27fc3fc7c5b71262e775090ee9724d8bb6b`) and v1.1.15
-  (`9b7b8fb75d0323e33a2bdd6a38ebb417b058eb78`, including `b19eed6a7`), background standby recovery:
-  a periodic, persisted JobScheduler check (`calls/CallStandbyRecoveryJob.kt`) that re-requests only
-  the incoming standby the owner already granted, the owner-stop record that blocks it and the sticky
-  restart until Mika is opened again, helper-first repair guidance, and the blocked-standby
-  notification opening the existing standby checklist (`calls/CallStandbyService.kt`,
-  `calls/ui/CallSettingsScreen.kt`, `ui/MainActivity.kt`). Adapted to Mika's split call runtime,
-  full-exit semantics and existing translations, with policy/persistence unit tests.
+  (`9b7b8fb75d0323e33a2bdd6a38ebb417b058eb78`, including `b19eed6a73505adbfa766ec6f1e117ae1ed0df78`), background standby
+  recovery: a periodic, persisted JobScheduler check (`calls/CallStandbyRecoveryJob.kt`) that re-requests
+  only the incoming standby the owner already granted, one start rule shared with the visible-resume
+  path (`calls/CallStandbyPolicy.kt`), translated helper guidance, and the blocked-standby notification
+  opening the existing standby checklist (`calls/CallStandbyService.kt`, `calls/ui/CallSettingsScreen.kt`,
+  `ui/MainActivity.kt`, with `app/src/androidTest/java/com/wangzan101/mika/calls/ui/CallStandbyNotificationRouteTest.kt`).
+  Adapted to Mika's split call runtime, full-exit semantics and existing translations, with policy unit tests.
 - Service: 实时语音经火山引擎（Volcengine）的 WebSocket 接口,凭证由用户在通话设置页填写。
 
 ## scrcpy

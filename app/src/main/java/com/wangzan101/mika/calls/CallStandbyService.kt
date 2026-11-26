@@ -65,10 +65,7 @@ class CallStandbyService : Service() {
             if (calls?.hasOutgoingForegroundWork() != true || statusJob == null) requestStop(startId)
             return START_NOT_STICKY
         }
-        val incoming = calls.hasAuthorizedIncomingStandby() && (
-            if (intent == null) CallStandbyPolicy.acceptsStickyRestart(Build.VERSION.SDK_INT) { CallStandbyOwnerStop.stopped(this) }
-            else calls.isIncomingStandbyStartRequested() || stickyAutoAnswer
-        )
+        val incoming = calls.hasAuthorizedIncomingStandby() && (intent == null || calls.isIncomingStandbyStartRequested() || stickyAutoAnswer)
         if (!notificationAllowed || !CallStandbyPolicy.acceptsStart(incoming, explicit, calls.hasOutgoingForegroundWork())) {
             calls.onStandbyStartFailed(getString(
                 if (notificationAllowed) R.string.calls_standby_not_ready else R.string.calls_standby_notifications_required,
@@ -93,7 +90,7 @@ class CallStandbyService : Service() {
                     lockedDial && state.aiActive -> Notice(getString(R.string.calls_standby_ai_active))
                     lockedDial -> Notice(getString(R.string.calls_notification_preparing))
                     state.autoAnswerStage == CallAutoAnswerStage.PAUSED -> Notice(getString(R.string.calls_auto_paused))
-                    // Tapping opens the existing standby section with the reason, unless a call is on.
+                    // Tapping opens the existing standby checklist with the reason, unless a call is on.
                     state.backgroundStandbyBlockedReason != null -> Notice(getString(R.string.calls_standby_unavailable),
                         opensStandbySettings = state.phase == CallPhase.IDLE)
                     state.aiActive -> Notice(getString(R.string.calls_standby_ai_active))
