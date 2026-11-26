@@ -142,6 +142,9 @@ internal fun CallRuntime.autoAnswerBlocker(config: CallConfig, notificationReady
         app.getString(R.string.calls_pick_types) else "自动接听名单为空"
     config.incomingScope == IncomingScope.TYPES && ScreenAccessibility.instance.value == null ->
         app.getString(R.string.calls_type_accessibility)
+    // Shown on the repair page the standby notification opens, so it is translated and actionable.
+    CallStandbyPolicy.needsHelperBeforePreparing(config.enabled, shell != null, configuring) ->
+        app.getString(R.string.calls_setup_shell)
     else -> prerequisite(ignoreWork = true, notificationReady = notificationReady)
         ?: if (!audioReady) audioDetail ?: "设备通话音频尚未准备好" else null
 }

@@ -204,7 +204,9 @@ class CallRuntime(internal val app: MikaApp) {
                 lockedDial?.takeIf { !config.enabled || !config.credentialsConfigured || config.audioMode != it.config.audioMode ||
                     config.activeVoiceProfileId != it.config.activeVoiceProfileId }
                     ?.let { finishLockedDial(it, "电话设置已变更，未执行锁屏拨出") }
-                if (!hasAuthorizedIncomingStandby()) standbyService?.revokeIncomingAuthorization()
+                val authorized = hasAuthorizedIncomingStandby()
+                if (!authorized) standbyService?.revokeIncomingAuthorization()
+                CallStandbyRecoveryJob.reconcile(app, authorized)
                 stopBackgroundStandbyIfUnneeded()
                 val active = work
                 if (active != null && (!config.enabled || !config.credentialsConfigured ||
@@ -283,7 +285,7 @@ class CallRuntime(internal val app: MikaApp) {
             // The app can reopen before the on-device audio helper finishes reconnecting.
             // Reevaluate when readiness changes; Android only permits this start while visible.
             combine(app.foreground.visible, state) { visible, _ -> visible }.collect { visible ->
-                val eligible = visible && !standbyStarting && standbyService?.stickyAutoAnswer != true &&
+                val eligible = visible && !configuring && !standbyStarting && standbyService?.stickyAutoAnswer != true &&
                     work == null && lockedDial == null && !unobservedManagedCall && liveCalls().isEmpty() &&
                     hasAuthorizedIncomingStandby() && interactiveForeground() &&
                     autoAnswerBlocker(settings.state.value) == null &&

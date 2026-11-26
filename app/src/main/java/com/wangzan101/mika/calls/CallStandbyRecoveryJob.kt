@@ -8,78 +8,111 @@ import android.app.job.JobScheduler
 import android.app.job.JobService
 import android.content.ComponentName
 import android.content.Context
+import android.content.SharedPreferences
 import android.os.Build
 import android.os.PowerManager
 import android.util.Log
 import com.wangzan101.mika.MikaApp
 
-/** Periodic backup for devices that drop the normal sticky foreground-service restart. */
+/**
+ * Periodic backup for incoming standby when Android drops the sticky foreground-service restart
+ * (ported from FlashPhone v1.1.14). It only re-requests the standby the owner already started;
+ * it never asks for a permission, never replays outgoing work, and stays off after an explicit
+ * stop or a full exit. The 15-minute interval is a request; Android may defer it (Doze, standby buckets).
+ */
 class CallStandbyRecoveryJob : JobService() {
     override fun onStartJob(params: JobParameters): Boolean {
-        // JobService and the runtime share the main thread. Keep this callback alive until
-        // Android has been asked to start the service or the runtime has declined the request.
-        (application as MikaApp).calls.restoreAuthorizedStandbyFromSystem(requireBatteryExemption = true)
+        // Runs on the main thread like the runtime. The service request is asynchronous, so
+        // nothing is left for this job to hold on to.
+        (application as MikaApp).calls.restoreAuthorizedStandbyFromSystem()
         return false
     }
 
-    // The callback queues no job-owned work, and later checks use the normal periodic schedule.
     override fun onStopJob(params: JobParameters): Boolean = false
 
     companion object {
         private const val JOB_ID = 0x43414C52
         private const val INTERVAL_MS = 15 * 60 * 1_000L
-        private const val PREFS = "call_standby_recovery"
-        private const val LAST_OPENED = "last_opened"
-        private const val USER_STOPPED = "user_stopped"
 
-        /** Keep the existing interval across app/service restarts. The OS can defer periodic work. */
+        /**
+         * Keeps the job scheduled while it can be useful: the owner's grant stands and they have
+         * not stopped Mika. Battery and notification permission are checked when it runs, so a
+         * permission that comes back re-arms standby without the app being opened.
+         */
         internal fun reconcile(context: Context, authorized: Boolean) {
             runCatching {
                 val scheduler = context.getSystemService(JobScheduler::class.java) ?: return
-                if (!authorized || !allowsScheduledForegroundStart(context) || !allowsBackgroundRecovery(context)) {
-                    scheduler.cancel(JOB_ID)
-                } else if (scheduler.getPendingJob(JOB_ID) == null) {
+                val wanted = CallStandbyPolicy.keepsRecoveryScheduled(
+                    Build.VERSION.SDK_INT, authorized, ownerStopped = authorized && CallStandbyOwnerStop.stopped(context),
+                )
+                if (!wanted) scheduler.cancel(JOB_ID)
+                else if (scheduler.getPendingJob(JOB_ID) == null) {
                     val info = JobInfo.Builder(JOB_ID, ComponentName(context, CallStandbyRecoveryJob::class.java))
                         .setPeriodic(INTERVAL_MS)
                         .setPersisted(true)
                         .build()
                     check(scheduler.schedule(info) == JobScheduler.RESULT_SUCCESS)
                 }
-            }.onFailure { Log.w("CallStandby", "Could not configure the Android standby recovery job", it) }
+            }.onFailure { Log.w("CallStandby", "Could not configure the standby recovery job", it) }
         }
 
-        internal fun acknowledgeUserOpen(context: Context) {
-            prefs(context).edit().putLong(LAST_OPENED, System.currentTimeMillis()).remove(USER_STOPPED).apply()
+        /** The owner opened Mika: an earlier stop no longer blocks recovery, and the schedule follows the grant. */
+        internal fun onOwnerOpenedApp(app: MikaApp) {
+            CallStandbyOwnerStop.of(app).opened(System.currentTimeMillis())
+            // Only bring the call runtime up for owners who granted standby at some point.
+            if (CallSettings.hasStoredStandbyAuthorization(app)) app.calls.refreshStandbyRecovery()
+            else reconcile(app, authorized = false)
         }
 
-        internal fun allowsScheduledForegroundStart(context: Context): Boolean = runCatching {
-            Build.VERSION.SDK_INT >= 30 &&
-                context.getSystemService(ActivityManager::class.java)?.isBackgroundRestricted == false &&
+        /** Battery-optimisation exemption with unrestricted background use is what lets a job start a foreground service. */
+        internal fun systemAllowsScheduledStart(context: Context): Boolean = runCatching {
+            context.getSystemService(ActivityManager::class.java)?.isBackgroundRestricted == false &&
                 context.getSystemService(PowerManager::class.java)?.isIgnoringBatteryOptimizations(context.packageName) == true
         }.getOrDefault(false)
+    }
+}
 
-        internal fun allowsBackgroundRecovery(context: Context): Boolean {
-            val state = prefs(context)
-            if (Build.VERSION.SDK_INT < 30 || state.getBoolean(USER_STOPPED, false)) return false
-            val lastOpened = state.getLong(LAST_OPENED, 0L)
-            val userStopped = runCatching {
-                val manager = checkNotNull(context.getSystemService(ActivityManager::class.java))
-                // Before the first recorded opening, only the newest exit is reliable for
-                // deciding whether the existing install was stopped by the owner.
-                val maxRecords = if (lastOpened > 0L) 0 else 1
-                manager.getHistoricalProcessExitReasons(context.packageName, 0, maxRecords).any {
-                    explicitStopSinceOpen(it.reason, it.timestamp, lastOpened)
-                }
-            }.getOrElse { return false }
-            if (!userStopped) return true
-            // Task Manager can leave jobs scheduled. Remember the stop after exit history rotates.
-            state.edit().putBoolean(USER_STOPPED, true).apply()
-            return false
+/**
+ * Remembers that the owner stopped Mika from the system since they last opened it: a force stop,
+ * or a task manager that reports its kill as user-requested and leaves jobs scheduled. Background
+ * recovery stays off until the next open; the record outlives Android's rotating exit history.
+ */
+internal class CallStandbyOwnerStop(private val prefs: SharedPreferences) {
+    fun opened(now: Long) {
+        prefs.edit().putLong(LAST_OPENED, now).remove(STOPPED).apply()
+    }
+
+    /**
+     * [exits] lists recent process exits as (reason, timestamp); with `newestOnly` it may return just
+     * the latest. It returns null when Android cannot tell, which counts as stopped: unsure means no revival.
+     */
+    fun stopped(exits: (newestOnly: Boolean) -> List<Pair<Int, Long>>?): Boolean {
+        if (prefs.getBoolean(STOPPED, false)) return true
+        val lastOpened = prefs.getLong(LAST_OPENED, 0L)
+        // Before the first recorded open, only the newest exit says whether this install was stopped.
+        val recent = exits(lastOpened == 0L) ?: return true
+        if (recent.none { (reason, at) -> explicitStopSinceOpen(reason, at, lastOpened) }) return false
+        prefs.edit().putBoolean(STOPPED, true).apply()
+        return true
+    }
+
+    companion object {
+        private const val PREFS = "call_standby_recovery"
+        private const val LAST_OPENED = "last_opened"
+        private const val STOPPED = "user_stopped"
+
+        fun of(context: Context) = CallStandbyOwnerStop(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE))
+
+        /** Android 11+ only: older versions have no exit history, and Mika does not schedule recovery there. */
+        fun stopped(context: Context): Boolean = Build.VERSION.SDK_INT >= 30 && of(context).stopped { newestOnly ->
+            runCatching {
+                checkNotNull(context.getSystemService(ActivityManager::class.java))
+                    .getHistoricalProcessExitReasons(context.packageName, 0, if (newestOnly) 1 else 0)
+                    .map { it.reason to it.timestamp }
+            }.getOrNull()
         }
 
-        internal fun explicitStopSinceOpen(reason: Int, exitedAt: Long, lastOpened: Long): Boolean =
+        fun explicitStopSinceOpen(reason: Int, exitedAt: Long, lastOpened: Long): Boolean =
             reason == ApplicationExitInfo.REASON_USER_REQUESTED && exitedAt >= lastOpened
-
-        private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
     }
 }

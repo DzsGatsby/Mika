@@ -72,4 +72,43 @@ class CallStandbyPolicyTest {
         assertFalse(resume.take(visible = false, eligible = true))
         assertTrue(resume.take(visible = true, eligible = true))
     }
+
+    @Test fun recoveryStaysScheduledThroughPermissionLossAndStartsOnceItReturns() {
+        // The schedule follows only the grant and the owner's stop, not battery or notification permission.
+        assertTrue(CallStandbyPolicy.keepsRecoveryScheduled(sdk = 30, authorized = true, ownerStopped = false))
+        assertFalse(CallStandbyPolicy.keepsRecoveryScheduled(sdk = 29, authorized = true, ownerStopped = false))
+        assertFalse(CallStandbyPolicy.keepsRecoveryScheduled(sdk = 34, authorized = false, ownerStopped = false))
+        assertFalse(CallStandbyPolicy.keepsRecoveryScheduled(sdk = 34, authorized = true, ownerStopped = true))
+
+        fun run(systemAllowsStart: Boolean, notificationsAllowed: Boolean) = CallStandbyPolicy.scheduledStartAllowed(
+            authorized = true, ownerStopped = false, systemAllowsStart = systemAllowsStart,
+            notificationsAllowed = notificationsAllowed, busy = false,
+        )
+        assertFalse(run(systemAllowsStart = false, notificationsAllowed = true))
+        assertFalse(run(systemAllowsStart = true, notificationsAllowed = false))
+        assertTrue(run(systemAllowsStart = true, notificationsAllowed = true))
+    }
+
+    @Test fun scheduledStartNeverOverridesAStopAMissingGrantOrRunningWork() {
+        fun run(authorized: Boolean = true, ownerStopped: Boolean = false, busy: Boolean = false) =
+            CallStandbyPolicy.scheduledStartAllowed(authorized, ownerStopped, systemAllowsStart = true,
+                notificationsAllowed = true, busy = busy)
+        assertFalse(run(authorized = false))
+        assertFalse(run(ownerStopped = true))
+        assertFalse(run(busy = true))
+        assertTrue(run())
+    }
+
+    @Test fun stickyRestartIsRefusedAfterAnOwnerStopOnlyWhereAndroidReportsIt() {
+        assertTrue(CallStandbyPolicy.acceptsStickyRestart(29) { error("no exit history before Android 11") })
+        assertTrue(CallStandbyPolicy.acceptsStickyRestart(30) { false })
+        assertFalse(CallStandbyPolicy.acceptsStickyRestart(30) { true })
+    }
+
+    @Test fun preparingWaitsForTheHelperOnlyWhileTheFeatureIsOnAndIdle() {
+        assertTrue(CallStandbyPolicy.needsHelperBeforePreparing(enabled = true, helperConnected = false, configuring = false))
+        assertFalse(CallStandbyPolicy.needsHelperBeforePreparing(enabled = true, helperConnected = true, configuring = false))
+        assertFalse(CallStandbyPolicy.needsHelperBeforePreparing(enabled = true, helperConnected = false, configuring = true))
+        assertFalse(CallStandbyPolicy.needsHelperBeforePreparing(enabled = false, helperConnected = false, configuring = false))
+    }
 }

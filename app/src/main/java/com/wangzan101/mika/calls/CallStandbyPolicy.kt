@@ -21,6 +21,28 @@ internal object CallStandbyPolicy {
     fun allowsAutomaticAnswer(userUnlocked: Boolean, interactiveForeground: Boolean, serviceRunning: Boolean, notificationsAllowed: Boolean): Boolean =
         userUnlocked && (interactiveForeground || serviceRunning && notificationsAllowed)
 
+    /**
+     * The periodic recovery check stays scheduled while the owner's grant stands (it survives reboot
+     * as a persisted job) and they have not stopped Mika. Android 10 keeps the plain sticky restart.
+     */
+    fun keepsRecoveryScheduled(sdk: Int, authorized: Boolean, ownerStopped: Boolean): Boolean =
+        sdk >= 30 && authorized && !ownerStopped
+
+    /**
+     * A periodic check only re-requests the incoming standby the owner already granted, and only when
+     * Android lets a job start it; otherwise it waits for the next run. It never starts outgoing work.
+     */
+    fun scheduledStartAllowed(authorized: Boolean, ownerStopped: Boolean, systemAllowsStart: Boolean,
+        notificationsAllowed: Boolean, busy: Boolean): Boolean =
+        authorized && !ownerStopped && systemAllowsStart && notificationsAllowed && !busy
+
+    /** Android restarting the sticky service is refused after an owner stop, like the periodic check. */
+    fun acceptsStickyRestart(sdk: Int, ownerStopped: () -> Boolean): Boolean = sdk < 30 || !ownerStopped()
+
+    /** The repair page can prepare Telecom only after the audio helper connects (FlashPhone v1.1.15). */
+    fun needsHelperBeforePreparing(enabled: Boolean, helperConnected: Boolean, configuring: Boolean): Boolean =
+        enabled && !helperConnected && !configuring
+
     /** 不限时长(0)按最大档给预算;锁自然到期后由运行中的看门狗重新拿。 */
     fun activeWakeBudgetMs(maxCallSeconds: Int): Long =
         (if (maxCallSeconds <= 0) CallPolicy.MAX_SECONDS else maxCallSeconds.coerceIn(15, CallPolicy.MAX_SECONDS)) * 1_000L + 10_000L

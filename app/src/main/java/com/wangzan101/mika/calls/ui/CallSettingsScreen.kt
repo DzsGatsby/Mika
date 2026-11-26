@@ -54,10 +54,12 @@ import com.wangzan101.mika.settings.ui.models.Page
 fun CallSettingsScreen(runtime: CallRuntime, onInstructions: (() -> Unit)? = null, onBack: () -> Unit,
     standalone: Boolean = false, onHelperSetup: () -> Unit = {}, onAbout: () -> Unit = {},
     initialHistoryCallId: String? = null,
-    updateAvailable: Boolean = false, focusRequest: Int = 0, onOpenVoiceCatalog: () -> Unit = {}) {
+    updateAvailable: Boolean = false, focusRequest: Int = 0, onOpenVoiceCatalog: () -> Unit = {},
+    standbyRequest: Int = 0) {
     var instructionsOpen by rememberSaveable { mutableStateOf(false) }
     var voiceProfilesOpen by rememberSaveable { mutableStateOf(false) }
     var handledFocusRequest by rememberSaveable { mutableIntStateOf(0) }
+    var handledStandbyRequest by rememberSaveable { mutableIntStateOf(0) }
     val workspaceState = rememberSaveableStateHolder()
     val taskDraft = rememberSaveable(saver = CallTaskDraft.Saver) { CallTaskDraft() }
     LaunchedEffect(focusRequest) {
@@ -65,6 +67,14 @@ fun CallSettingsScreen(runtime: CallRuntime, onInstructions: (() -> Unit)? = nul
             instructionsOpen = false
             voiceProfilesOpen = false
             handledFocusRequest = focusRequest
+        }
+    }
+    // 待命通知「去处理」:先回到工作台,由工作台打开已有的待命检查页
+    LaunchedEffect(standbyRequest) {
+        if (standbyRequest > handledStandbyRequest) {
+            instructionsOpen = false
+            voiceProfilesOpen = false
+            handledStandbyRequest = standbyRequest
         }
     }
     // 这里的子页都不是导航路由,系统返回键要先关子页,不能直接退出整个电话页
@@ -82,7 +92,8 @@ fun CallSettingsScreen(runtime: CallRuntime, onInstructions: (() -> Unit)? = nul
         instructionsOpen -> CallInstructionsScreen(runtime) { instructionsOpen = false }
         else -> workspaceState.SaveableStateProvider("call-workspace") {
             CallSettingsWorkspace(runtime, taskDraft, onBack, onInstructions ?: { instructionsOpen = true },
-                { voiceProfilesOpen = true }, standalone, onHelperSetup, onAbout, updateAvailable, focusRequest, initialHistoryCallId)
+                { voiceProfilesOpen = true }, standalone, onHelperSetup, onAbout, updateAvailable, focusRequest, initialHistoryCallId,
+                standbyRequest)
         }
     } }
 }
@@ -94,6 +105,7 @@ private fun CallSettingsWorkspace(
     standalone: Boolean, onHelperSetup: () -> Unit, onAbout: () -> Unit, updateAvailable: Boolean,
     focusRequest: Int,
     initialHistoryCallId: String?,
+    standbyRequest: Int,
 ) {
     val config by runtime.settings.state.collectAsState()
     val state by runtime.state.collectAsState()
@@ -113,6 +125,7 @@ private fun CallSettingsWorkspace(
     var liveNavigation by remember { mutableIntStateOf(0) }
     var handledLiveNavigation by remember { mutableIntStateOf(0) }
     var handledFocusRequest by rememberSaveable { mutableIntStateOf(0) }
+    var handledStandbyRequest by rememberSaveable { mutableIntStateOf(0) }
     var taskNavigation by rememberSaveable { mutableIntStateOf(0) }
     var handledTaskNavigation by rememberSaveable { mutableIntStateOf(0) }
     var pendingReuse by remember { mutableStateOf<Pair<String, CallTaskBrief>?>(null) }
@@ -134,6 +147,17 @@ private fun CallSettingsWorkspace(
             tab = CallWorkspaceTab.Receive
             liveNavigation++
             handledFocusRequest = focusRequest
+        }
+    }
+    // 待命受阻的通知只展开已有的待命检查页(原因与去设置都在那里);通话或锁屏拨号进行中不打断
+    LaunchedEffect(standbyRequest) {
+        if (standbyRequest <= handledStandbyRequest) return@LaunchedEffect
+        handledStandbyRequest = standbyRequest
+        if (idle && pendingLockedDial == null) {
+            audioOpen = false
+            settingsOpen = false
+            dialog = null
+            checklistOpen = true
         }
     }
 
