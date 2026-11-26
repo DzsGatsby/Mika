@@ -18,6 +18,7 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextDirection
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -57,9 +58,10 @@ internal class CallTaskDraft {
     var constraints by mutableStateOf("")
     var simOverride by mutableStateOf<String?>(null)
 
+    /** Any typed character counts, whitespace included, so it can be cleared and undo never writes over it. */
     val hasContent: Boolean
-        get() = number.isNotBlank() || goal.isNotBlank() || questions.isNotBlank() ||
-            context.isNotBlank() || constraints.isNotBlank()
+        get() = number.isNotEmpty() || goal.isNotEmpty() || questions.isNotEmpty() ||
+            context.isNotEmpty() || constraints.isNotEmpty()
 
     fun fill(number: String, brief: CallTaskBrief) {
         this.number = number
@@ -162,9 +164,13 @@ internal fun CallTaskScreen(
     feedback?.let { CallFeedback(it) }
     val numberError = draft.number.isNotBlank() && number == null
     GroupCard(Modifier.testTag("call-task-fields")) {
-        CallNumberFieldRow(draft.numberInput, { draft.numberInput = it }, stringResource(R.string.calls_number),
-            editable, error = if (numberError) stringResource(R.string.calls_task_number_hint) else null,
-            dialPadOpen = dialPadOpen, onToggleDialPad = { dialPadOpen = !dialPadOpen })
+        CallFieldRow(MikaIcons.Phone, draft.numberInput, { draft.numberInput = it }, stringResource(R.string.calls_number),
+            editable, "call-number", error = if (numberError) stringResource(R.string.calls_task_number_hint) else null) {
+            IconButton(onClick = { dialPadOpen = !dialPadOpen }, enabled = editable, modifier = Modifier.testTag("call-dial-keypad-toggle")) {
+                Icon(MikaIcons.Keyboard, stringResource(if (dialPadOpen) R.string.calls_hide_dialpad else R.string.calls_show_dialpad),
+                    tint = if (dialPadOpen) MikaTheme.colors.accent else MikaTheme.colors.ink3)
+            }
+        }
         if (dialPadOpen) {
             Hairline()
             CallDialPad(editable, canDelete = draft.numberInput.selection.max > 0,
@@ -287,89 +293,74 @@ internal fun CallTaskScreen(
  */
 @Composable
 private fun CallFieldRow(
-    icon: androidx.compose.ui.graphics.vector.ImageVector, value: String, onValue: (String) -> Unit, placeholder: String,
-    enabled: Boolean, tag: String, keyboard: KeyboardType = KeyboardType.Text, ltr: Boolean = false,
-    minLines: Int = 1, maxLines: Int = 1, error: String? = null,
+    icon: ImageVector, value: String, onValue: (String) -> Unit, placeholder: String,
+    enabled: Boolean, tag: String, minLines: Int = 1, maxLines: Int = 1, error: String? = null,
+) {
+    val single = maxLines == 1
+    CallFieldRowFrame(icon, value.isEmpty(), placeholder, single, error) {
+        BasicTextField(
+            value, onValue, Modifier.fillMaxWidth().testTag(tag), enabled = enabled,
+            singleLine = single, minLines = minLines, maxLines = maxLines,
+            textStyle = MikaType.Body.copy(color = MikaTheme.colors.ink, textDirection = TextDirection.Content),
+            cursorBrush = SolidColor(MikaTheme.colors.accent),
+        )
+    }
+}
+
+/** The number row: keeps the cursor/selection (the dial pad edits there), reads left to right, and has a [trailing] action. */
+@Composable
+private fun CallFieldRow(
+    icon: ImageVector, value: TextFieldValue, onValue: (TextFieldValue) -> Unit, placeholder: String,
+    enabled: Boolean, tag: String, error: String? = null, trailing: @Composable () -> Unit,
+) {
+    CallFieldRowFrame(icon, value.text.isEmpty(), placeholder, single = true, error, trailing) {
+        BasicTextField(
+            value, onValue, Modifier.fillMaxWidth().testTag(tag), enabled = enabled, singleLine = true,
+            textStyle = MikaType.Body.copy(color = MikaTheme.colors.ink, textDirection = TextDirection.Ltr),
+            cursorBrush = SolidColor(MikaTheme.colors.accent),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+        )
+    }
+}
+
+@Composable
+private fun CallFieldRowFrame(
+    icon: ImageVector, empty: Boolean, placeholder: String, single: Boolean, error: String?,
+    trailing: (@Composable () -> Unit)? = null, field: @Composable () -> Unit,
 ) {
     val c = MikaTheme.colors
-    val single = maxLines == 1
     Row(
-        Modifier.fillMaxWidth().heightIn(min = MikaSize.RowMin).padding(horizontal = 16.dp, vertical = if (single) 0.dp else 12.dp),
+        Modifier.fillMaxWidth().heightIn(min = MikaSize.RowMin)
+            .padding(start = 16.dp, end = if (trailing != null) 4.dp else 16.dp, top = if (single) 0.dp else 12.dp,
+                bottom = if (single) 0.dp else 12.dp),
         verticalAlignment = if (single) Alignment.CenterVertically else Alignment.Top,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         IconTile(icon)
         Column(Modifier.weight(1f).padding(top = if (single) 0.dp else 5.dp)) {
             Box {
-                if (value.isEmpty()) Text(placeholder, style = MikaType.Body, color = c.ink3)
-                BasicTextField(
-                    value, onValue, Modifier.fillMaxWidth().testTag(tag), enabled = enabled,
-                    singleLine = single, minLines = minLines, maxLines = maxLines,
-                    textStyle = MikaType.Body.copy(color = c.ink,
-                        textDirection = if (ltr) TextDirection.Ltr else TextDirection.Content),
-                    cursorBrush = SolidColor(c.accent),
-                    keyboardOptions = KeyboardOptions(keyboardType = keyboard),
-                )
+                if (empty) Text(placeholder, style = MikaType.Body, color = c.ink3)
+                field()
             }
             error?.let { Text(it, Modifier.padding(top = 4.dp), style = MikaType.Caption, color = c.bad) }
         }
-    }
-}
-
-/** [CallFieldRow] for the number, keeping the cursor/selection and offering the dial pad toggle. */
-@Composable
-private fun CallNumberFieldRow(
-    value: TextFieldValue, onValue: (TextFieldValue) -> Unit, placeholder: String, enabled: Boolean, error: String?,
-    dialPadOpen: Boolean, onToggleDialPad: () -> Unit,
-) {
-    val c = MikaTheme.colors
-    Row(
-        Modifier.fillMaxWidth().heightIn(min = MikaSize.RowMin).padding(start = 16.dp, end = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        IconTile(MikaIcons.Phone)
-        Column(Modifier.weight(1f)) {
-            Box {
-                if (value.text.isEmpty()) Text(placeholder, style = MikaType.Body, color = c.ink3)
-                BasicTextField(
-                    value, onValue, Modifier.fillMaxWidth().testTag("call-number"), enabled = enabled, singleLine = true,
-                    textStyle = MikaType.Body.copy(color = c.ink, textDirection = TextDirection.Ltr),
-                    cursorBrush = SolidColor(c.accent),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                )
-            }
-            error?.let { Text(it, Modifier.padding(top = 4.dp), style = MikaType.Caption, color = c.bad) }
-        }
-        IconButton(onClick = onToggleDialPad, enabled = enabled, modifier = Modifier.testTag("call-dial-keypad-toggle")) {
-            Icon(MikaIcons.Keyboard, stringResource(if (dialPadOpen) R.string.calls_hide_dialpad else R.string.calls_show_dialpad),
-                tint = if (dialPadOpen) c.accent else c.ink3)
-        }
+        trailing?.invoke()
     }
 }
 
 /** Only edits the draft number at its cursor; dialling still goes through the review dialog. */
 @Composable
 private fun CallDialPad(enabled: Boolean, canDelete: Boolean, onKey: (Char) -> Unit, onBackspace: () -> Unit) {
-    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp).testTag("call-dial-pad"),
-        verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        // '\b' marks the backspace key in the last row.
-        for (row in listOf("123", "456", "789", "+0\b")) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                for (key in row) {
-                    val backspace = key == '\b'
-                    FilledTonalButton(
-                        onClick = { if (backspace) onBackspace() else onKey(key) },
-                        enabled = enabled && (!backspace || canDelete),
-                        shape = CircleShape,
-                        contentPadding = PaddingValues(horizontal = 0.dp, vertical = 2.dp),
-                        modifier = Modifier.weight(1f).heightIn(min = 48.dp)
-                            .testTag(if (backspace) "call-dial-backspace" else "call-dial-key-$key"),
-                    ) {
-                        if (backspace) Text(stringResource(R.string.calls_delete_digit), style = MikaType.Body)
-                        else Text(key.toString(), style = MikaType.Title)
-                    }
-                }
+    CallDialPadGrid(CallDialLayouts.number, Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)
+        .testTag("call-dial-pad"), spacing = 6.dp) { key ->
+        when (key) {
+            CallDialKey.Backspace -> CallDialKeyButton(onBackspace, enabled && canDelete, "call-dial-backspace",
+                minHeight = 48.dp, verticalPadding = 2.dp) {
+                Text(stringResource(R.string.calls_delete_digit), style = MikaType.Body)
+            }
+            is CallDialKey.Symbol -> CallDialKeyButton({ onKey(key.char) }, enabled, "call-dial-key-${key.char}",
+                minHeight = 48.dp, verticalPadding = 2.dp) {
+                Text(key.char.toString(), style = MikaType.Title)
             }
         }
     }

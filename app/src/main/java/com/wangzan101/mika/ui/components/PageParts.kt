@@ -3,11 +3,7 @@ package com.wangzan101.mika.ui.components
 import com.wangzan101.mika.R
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,6 +25,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -107,11 +104,10 @@ fun SearchField(
             )
         }
         if (onClear != null && value.isNotEmpty()) {
-            Box(
-                Modifier.size(36.dp).clip(CircleShape).clickable(role = Role.Button, onClick = onClear)
-                    .then(if (clearTag != null) Modifier.testTag(clearTag) else Modifier),
-                contentAlignment = Alignment.Center,
-            ) { Icon(MikaIcons.Close, stringResource(R.string.clear), Modifier.size(18.dp), tint = c.ink3) }
+            // IconButton keeps the 48dp touch target even though the field itself is only 40dp tall.
+            IconButton(onClick = onClear, modifier = if (clearTag != null) Modifier.testTag(clearTag) else Modifier) {
+                Icon(MikaIcons.Close, stringResource(R.string.clear), Modifier.size(18.dp), tint = c.ink3)
+            }
         }
     }
 }

@@ -258,7 +258,7 @@ private fun CallHistoryItem(
     val name = record.number?.let { "\u2066$it\u2069" } ?: stringResource(R.string.calls_unknown_number)
     val expansion = stringResource(if (expanded) R.string.calls_collapse else R.string.calls_transcript)
     val shortTime = remember(record.startedAtMs, locale) { callShortTime(record.startedAtMs, locale) }
-    Column(Modifier.fillMaxWidth().semantics { stateDescription = "$status · $expansion" }) {
+    Column(Modifier.fillMaxWidth().testTag("call-history-item-${record.id}").semantics { stateDescription = "$status · $expansion" }) {
         ListRow(if (record.direction == CallDirection.INCOMING) MikaIcons.Handset else MikaIcons.Phone,
             record.task?.goal ?: name,
             if (record.task != null) "$name · $direction" else direction,

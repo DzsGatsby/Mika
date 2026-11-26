@@ -69,4 +69,26 @@ class CallDialNumberEditTest {
         // Nothing about the cleared text is part of what the saver writes.
         assertEquals(List(6) { "" }, draft.snapshotFields())
     }
+
+    @Test fun whitespaceCountsAsContentSoItCanBeClearedAndUndoNeverOverwritesIt() {
+        val draft = CallTaskDraft()
+        draft.goal = "   "
+        assertTrue(draft.hasContent)
+        val cleared = draft.clearText()!!
+        assertEquals("", draft.goal)
+        draft.context = " "
+        assertFalse(draft.undoClear(cleared))
+        assertEquals(" ", draft.context)
+        assertEquals("", draft.goal)
+    }
+
+    @Test fun numberPadOffersOnlyWhatAnOutgoingNumberMayContain() {
+        val symbols = CallDialLayouts.number.flatten().filterIsInstance<CallDialKey.Symbol>().map { it.char }
+        assertEquals("123456789+0".toSet(), symbols.toSet())
+        assertTrue(CallDialKey.Backspace in CallDialLayouts.number.last())
+        assertEquals("123456789*0#".toSet(),
+            CallDialLayouts.dtmf.flatten().map { (it as CallDialKey.Symbol).char }.toSet())
+        assertEquals("+12345678", com.wangzan101.mika.calls.CallPolicy.outgoingNumber("+12345678"))
+        assertNull(com.wangzan101.mika.calls.CallPolicy.outgoingNumber("1234567#"))
+    }
 }
