@@ -1,5 +1,7 @@
 package com.wangzan101.mika.calls.ui
 
+import android.app.PendingIntent
+import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -23,7 +25,17 @@ class CallStandbyNotificationRouteTest {
         val repair = CallStandbyService.notificationContentIntent(activity, opensStandbySettings = true)
         assertNotEquals(general, repair)
         val checklist = compose.onNodeWithTag(CHECKLIST)
+        // onNewIntent replaces the activity's intent; ActivityScenario matches lifecycle events by the launch
+        // intent, so put it back before the rule closes the activity or teardown never sees it destroyed.
+        val launchIntent = activity.intent
+        try {
+            route(general, repair, checklist)
+        } finally {
+            compose.runOnUiThread { activity.intent = launchIntent }
+        }
+    }
 
+    private fun route(general: PendingIntent, repair: PendingIntent, checklist: SemanticsNodeInteraction) {
         repair.send()
         waitFor(CHECKLIST)
         checklist.assertIsDisplayed()
