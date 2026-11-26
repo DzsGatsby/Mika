@@ -63,6 +63,30 @@ class VoiceCatalogStore(
         }
     }
 
+    /**
+     * Replaces every model of [serviceId] with [models] in one snapshot (a list refresh). Verifications stay for
+     * models whose binding is unchanged; selections of models that are gone fall back as on delete.
+     */
+    @Synchronized
+    fun replaceModels(serviceId: String, models: List<VoiceModel>) {
+        require(models.all { it.serviceId == serviceId })
+        commit { current ->
+            val before = current.models.filter { it.serviceId == serviceId }.associateBy { it.id }
+            val all = current.models.filterNot { it.serviceId == serviceId } + models
+            val after = models.associateBy { it.id }
+            current.copy(
+                models = all,
+                selections = pruneSelections(current.selections, all),
+                verifications = current.verifications.filter { record ->
+                    if (record.ref.serviceId != serviceId) return@filter true
+                    val next = after[record.ref.modelId] ?: return@filter false
+                    verificationIdentity(before[record.ref.modelId]?.binding(record.ref.capability)) ==
+                        verificationIdentity(next.binding(record.ref.capability))
+                },
+            )
+        }
+    }
+
     @Synchronized
     fun deleteModel(ref: VoiceModelRef) {
         commit { current ->
@@ -120,6 +144,54 @@ class VoiceCatalogStore(
     @Synchronized
     fun setRealtimeSelection(ref: VoiceModelRef?) {
         commit { it.copy(selections = it.selections.copy(realtime = ref)) }
+    }
+
+    /** Null makes calls follow the shared Realtime selection again and drops the call-only voice. */
+    @Synchronized
+    fun setCallRealtimeSelection(ref: VoiceModelRef?, speaker: String = "") {
+        commit {
+            it.copy(selections = it.selections.copy(callRealtime = ref, callSpeaker = if (ref == null) "" else speaker.trim()))
+        }
+    }
+
+    /** Engine, think model, turn silence, barge-in and idle hang-up for voice calls. */
+    @Synchronized
+    fun setCallStyle(
+        engine: CallEngine? = null,
+        think: ThinkModel? = null,
+        silenceMs: Int? = null,
+        bargeIn: Boolean? = null,
+        idleMinutes: Int? = null,
+    ) {
+        commit {
+            val s = it.selections
+            it.copy(selections = s.copy(
+                engine = engine ?: s.engine,
+                think = think ?: s.think,
+                silenceMs = (silenceMs ?: s.silenceMs).coerceIn(VoiceSelections.MIN_SILENCE_MS, VoiceSelections.MAX_SILENCE_MS),
+                bargeIn = bargeIn ?: s.bargeIn,
+                idleMinutes = (idleMinutes ?: s.idleMinutes).let {
+                    if (it <= VoiceSelections.NEVER_IDLE) VoiceSelections.NEVER_IDLE
+                    else it.coerceIn(VoiceSelections.MIN_IDLE_MINUTES, VoiceSelections.MAX_IDLE_MINUTES)
+                },
+            ))
+        }
+    }
+
+    /**
+     * AI phone calls' own engine and listen/speak models. Every argument is the full new value: null follows the
+     * voice-call choice. The call voice is dropped when calls follow the shared speak model.
+     */
+    @Synchronized
+    fun setPhoneVoice(engine: CallEngine?, stt: VoiceModelRef?, tts: VoiceModelRef?, ttsVoice: String) {
+        commit {
+            it.copy(selections = it.selections.copy(
+                callEngine = engine,
+                callStt = stt,
+                callTts = tts,
+                callTtsVoice = if (tts == null) "" else ttsVoice.trim(),
+            ))
+        }
     }
 
     @Synchronized
@@ -219,6 +291,9 @@ class VoiceCatalogStore(
         validateSelection(snapshot.selections.stt, snapshot.models)
         validateOptionalSelection(snapshot.selections.tts, VoiceCapability.TTS, snapshot.models)
         validateOptionalSelection(snapshot.selections.realtime, VoiceCapability.REALTIME, snapshot.models)
+        validateOptionalSelection(snapshot.selections.callRealtime, VoiceCapability.REALTIME, snapshot.models)
+        validateOptionalSelection(snapshot.selections.callStt, VoiceCapability.STT, snapshot.models)
+        validateOptionalSelection(snapshot.selections.callTts, VoiceCapability.TTS, snapshot.models)
         require(snapshot.verifications.map { it.ref to it.scope }.distinct().size == snapshot.verifications.size)
         snapshot.verifications.forEach { record -> validateRef(record.ref, record.ref.capability, snapshot.models) }
     }
@@ -245,6 +320,11 @@ class VoiceCatalogStore(
             stt = if (stt == null || stt == SYSTEM_STT_REF || stt.selectable(models)) selections.stt else SttSelection.Off,
             tts = selections.tts?.takeIf { it == SYSTEM_TTS_REF || it.selectable(models) },
             realtime = selections.realtime?.takeIf { it.selectable(models) },
+            callRealtime = selections.callRealtime?.takeIf { it.selectable(models) },
+            callSpeaker = if (selections.callRealtime?.selectable(models) == true) selections.callSpeaker else "",
+            callStt = selections.callStt?.takeIf { it.selectable(models) },
+            callTts = selections.callTts?.takeIf { it == SYSTEM_TTS_REF || it.selectable(models) },
+            callTtsVoice = if (selections.callTts?.let { it == SYSTEM_TTS_REF || it.selectable(models) } == true) selections.callTtsVoice else "",
         )
     }
 
@@ -263,6 +343,7 @@ class VoiceCatalogStore(
     /** Binding fields that determine connection identity; cosmetic fields (Realtime speaker) are ignored. */
     private fun verificationIdentity(binding: Any?): Any? = when (binding) {
         is RealtimeBinding -> RealtimeBinding(binding.protocol, binding.endpoint, speaker = "")
+        is TtsBinding -> binding.copy(voice = "", voices = emptyList(), voiceNames = emptyMap())
         else -> binding
     }
 

@@ -20,6 +20,7 @@
     <string name="language_arabic" translatable="false">العربية</string>
     <string name="language_persian" translatable="false">فارسی</string>
     <string name="language_turkish" translatable="false">Türkçe</string>
+    <string name="language_vietnamese" translatable="false">Tiếng Việt</string>
     <string name="settings_language_appearance">Language &amp; appearance</string>
     <string name="settings_personal_start">Open Personal Assistant on launch</string>
     <string name="settings_personal_start_sub">Use Personal Assistant as your first screen</string>
@@ -316,5 +317,17 @@
     <plurals name="settings_sandbox_budget_minutes_n">
         <item quantity="one">%1$d minute</item>
         <item quantity="other">%1$d minutes</item>
+    </plurals>
+    <string name="settings_attachment_file_limit">Per-file upload limit</string>
+    <string name="settings_attachment_file_limit_sub">Largest single file accepted from chat attachments and device file imports. WeChat images and computer-link files keep their fixed limits. Default is 200 MB.</string>
+    <plurals name="settings_attachment_file_limit_mb_n">
+        <item quantity="one">%1$d MB</item>
+        <item quantity="other">%1$d MB</item>
+    </plurals>
+    <string name="settings_workspace_size_limit">Per-workspace storage limit</string>
+    <string name="settings_workspace_size_limit_sub">Storage room for chat attachments and device file imports. Default is 4 GB.</string>
+    <plurals name="settings_workspace_size_limit_gb_n">
+        <item quantity="one">%1$d GB</item>
+        <item quantity="other">%1$d GB</item>
     </plurals>
 </resources>
