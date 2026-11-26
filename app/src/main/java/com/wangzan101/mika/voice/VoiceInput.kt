@@ -9,6 +9,8 @@ import com.wangzan101.mika.i18n.AppLanguage
 import com.wangzan101.mika.i18n.tr
 import com.wangzan101.mika.settings.Provider
 import com.wangzan101.mika.settings.ProviderStore
+import com.wangzan101.mika.settings.clientHeaders
+import com.wangzan101.mika.settings.providerKey
 import com.wangzan101.mika.voice.model.SttSelection
 import com.wangzan101.mika.voice.model.SttSelectionController
 import com.wangzan101.mika.voice.model.VoiceModelEnvironment
@@ -154,6 +156,8 @@ class VoiceInput(
                 })
             }
             is SpeechEngineSpec.Unavailable -> FailedSession(SpeechFailure.Unavailable(spec.why))
+            // Vendor recognition exists only in the catalog path; the legacy path never resolves to it.
+            is SpeechEngineSpec.Vendor -> FailedSession(SpeechFailure.Unavailable(SpeechEngineSpec.Why.SystemGone))
         }
     }
 }
