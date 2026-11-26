@@ -14,8 +14,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.background
@@ -45,7 +46,11 @@ import com.wangzan101.mika.memory.ui.Row
 /** A private draft in the workspace, never a saved call profile or background request. */
 @Stable
 internal class CallTaskDraft {
-    var number by mutableStateOf("")
+    /** The number with its cursor/selection, so the dial pad edits where the user is pointing. */
+    var numberInput by mutableStateOf(TextFieldValue())
+    var number: String
+        get() = numberInput.text
+        set(value) { if (value != numberInput.text) numberInput = TextFieldValue(value, TextRange(value.length)) }
     var goal by mutableStateOf("")
     var questions by mutableStateOf("")
     var context by mutableStateOf("")
@@ -67,6 +72,29 @@ internal class CallTaskDraft {
 
     fun snapshotFields(): List<String> = listOf(number, goal, questions, context, constraints, simOverride.orEmpty())
 
+    fun pressDialKey(key: Char) { numberInput = replaceNumberSelection(numberInput, key.toString()) }
+
+    fun pressDialBackspace() { numberInput = deleteNumberSelection(numberInput) }
+
+    /**
+     * Empties the written fields and hands back what was there, for an in-memory undo.
+     * The SIM chosen for this call is not part of the text and stays as it is.
+     */
+    fun clearText(): ClearedCallTaskText? {
+        if (!hasContent) return null
+        val cleared = ClearedCallTaskText(number, goal, questions, context, constraints)
+        number = ""; goal = ""; questions = ""; context = ""; constraints = ""
+        return cleared
+    }
+
+    /** Puts cleared text back, but never over anything the user has written since. */
+    fun undoClear(cleared: ClearedCallTaskText): Boolean {
+        if (hasContent) return false
+        number = cleared.number; goal = cleared.goal; questions = cleared.questions
+        context = cleared.context; constraints = cleared.constraints
+        return true
+    }
+
     companion object {
         val Saver = listSaver<CallTaskDraft, String>(
             save = { draft -> listOf(draft.number, draft.goal, draft.questions, draft.context,
@@ -87,6 +115,13 @@ internal class CallTaskDraft {
     }
 }
 
+/** Text taken out by "clear draft"; lives only in memory and is never written to saved state. */
+internal class ClearedCallTaskText(
+    val number: String, val goal: String, val questions: String, val context: String, val constraints: String,
+) {
+    override fun toString(): String = "ClearedCallTaskText(redacted)"
+}
+
 internal data class CallTaskSubmission(
     val number: String, val simId: String?, val simLabel: String, val voiceName: String, val brief: CallTaskBrief,
 ) {
@@ -105,6 +140,10 @@ internal fun CallTaskScreen(
 ) {
     var showSims by rememberSaveable { mutableStateOf(false) }
     var review by remember { mutableStateOf<CallTaskSubmission?>(null) }
+    var dialPadOpen by rememberSaveable { mutableStateOf(false) }
+    // Undo is memory-only: a saved-state restore or process death never brings cleared text back.
+    var cleared by remember(draft) { mutableStateOf<ClearedCallTaskText?>(null) }
+    LaunchedEffect(draft, draft.hasContent) { if (draft.hasContent) cleared = null }
     val number = CallPolicy.outgoingNumber(draft.number)
     val goalLength = draft.goal.trim().length
     val maxGoal = CallTaskBrief.MAX_GOAL_CHARS
@@ -123,13 +162,28 @@ internal fun CallTaskScreen(
     feedback?.let { CallFeedback(it) }
     val numberError = draft.number.isNotBlank() && number == null
     GroupCard(Modifier.testTag("call-task-fields")) {
-        CallFieldRow(MikaIcons.Phone, draft.number, { draft.number = it }, stringResource(R.string.calls_number),
-            editable, "call-number", keyboard = KeyboardType.Phone, ltr = true,
-            error = if (numberError) stringResource(R.string.calls_task_number_hint) else null)
+        CallNumberFieldRow(draft.numberInput, { draft.numberInput = it }, stringResource(R.string.calls_number),
+            editable, error = if (numberError) stringResource(R.string.calls_task_number_hint) else null,
+            dialPadOpen = dialPadOpen, onToggleDialPad = { dialPadOpen = !dialPadOpen })
+        if (dialPadOpen) {
+            Hairline()
+            CallDialPad(editable, canDelete = draft.numberInput.selection.max > 0,
+                onKey = draft::pressDialKey, onBackspace = draft::pressDialBackspace)
+        }
         Hairline()
         CallFieldRow(MikaIcons.Doc, draft.goal, { draft.goal = it }, stringResource(R.string.calls_task_goal_example),
             editable, "call-task-goal", minLines = 3, maxLines = 6,
             error = if (goalLength > maxGoal) stringResource(R.string.calls_task_limit, goalLength, maxGoal) else null)
+    }
+
+    val pendingUndo = cleared?.takeIf { !draft.hasContent }
+    if (draft.hasContent || pendingUndo != null) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            if (pendingUndo != null) TextButton(onClick = { draft.undoClear(pendingUndo); cleared = null }, enabled = editable,
+                modifier = Modifier.testTag("call-task-undo-clear")) { Text(stringResource(R.string.undo)) }
+            else TextButton(onClick = { cleared = draft.clearText() }, enabled = editable,
+                modifier = Modifier.testTag("call-task-clear")) { Text(stringResource(R.string.calls_clear_draft)) }
+        }
     }
 
     // 三个可选项收在一行里;填过的草稿(例如从记录里复用)直接展开
@@ -258,6 +312,65 @@ private fun CallFieldRow(
                 )
             }
             error?.let { Text(it, Modifier.padding(top = 4.dp), style = MikaType.Caption, color = c.bad) }
+        }
+    }
+}
+
+/** [CallFieldRow] for the number, keeping the cursor/selection and offering the dial pad toggle. */
+@Composable
+private fun CallNumberFieldRow(
+    value: TextFieldValue, onValue: (TextFieldValue) -> Unit, placeholder: String, enabled: Boolean, error: String?,
+    dialPadOpen: Boolean, onToggleDialPad: () -> Unit,
+) {
+    val c = MikaTheme.colors
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = MikaSize.RowMin).padding(start = 16.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        IconTile(MikaIcons.Phone)
+        Column(Modifier.weight(1f)) {
+            Box {
+                if (value.text.isEmpty()) Text(placeholder, style = MikaType.Body, color = c.ink3)
+                BasicTextField(
+                    value, onValue, Modifier.fillMaxWidth().testTag("call-number"), enabled = enabled, singleLine = true,
+                    textStyle = MikaType.Body.copy(color = c.ink, textDirection = TextDirection.Ltr),
+                    cursorBrush = SolidColor(c.accent),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                )
+            }
+            error?.let { Text(it, Modifier.padding(top = 4.dp), style = MikaType.Caption, color = c.bad) }
+        }
+        IconButton(onClick = onToggleDialPad, enabled = enabled, modifier = Modifier.testTag("call-dial-keypad-toggle")) {
+            Icon(MikaIcons.Keyboard, stringResource(if (dialPadOpen) R.string.calls_hide_dialpad else R.string.calls_show_dialpad),
+                tint = if (dialPadOpen) c.accent else c.ink3)
+        }
+    }
+}
+
+/** Only edits the draft number at its cursor; dialling still goes through the review dialog. */
+@Composable
+private fun CallDialPad(enabled: Boolean, canDelete: Boolean, onKey: (Char) -> Unit, onBackspace: () -> Unit) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp).testTag("call-dial-pad"),
+        verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        // '\b' marks the backspace key in the last row.
+        for (row in listOf("123", "456", "789", "+0\b")) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                for (key in row) {
+                    val backspace = key == '\b'
+                    FilledTonalButton(
+                        onClick = { if (backspace) onBackspace() else onKey(key) },
+                        enabled = enabled && (!backspace || canDelete),
+                        shape = CircleShape,
+                        contentPadding = PaddingValues(horizontal = 0.dp, vertical = 2.dp),
+                        modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                            .testTag(if (backspace) "call-dial-backspace" else "call-dial-key-$key"),
+                    ) {
+                        if (backspace) Text(stringResource(R.string.calls_delete_digit), style = MikaType.Body)
+                        else Text(key.toString(), style = MikaType.Title)
+                    }
+                }
+            }
         }
     }
 }

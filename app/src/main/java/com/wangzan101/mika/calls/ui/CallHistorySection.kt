@@ -136,8 +136,10 @@ internal fun CallHistorySection(
     if (history.isEmpty()) {
         GroupCard { ListRow(MikaIcons.Clock, stringResource(R.string.calls_history_empty), first = true) }
     } else {
+        // Clearing the search keeps the status filter; only "reset filters" goes back to everything.
         SearchField(query, { query = it; showAll = false }, stringResource(R.string.calls_history_search),
-            Modifier.testTag("call-history-search"))
+            Modifier.testTag("call-history-search"),
+            onClear = { query = ""; showAll = false; expanded = null }, clearTag = "call-history-clear-search")
         FlowRow(Modifier.fillMaxWidth().padding(vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             HistoryFilter.entries.forEach { choice ->
                 SelectChip(
@@ -148,6 +150,10 @@ internal fun CallHistorySection(
         }
         if (results.isEmpty()) {
             GroupCard { ListRow(MikaIcons.Search, stringResource(R.string.calls_history_no_match), first = true) }
+            TextButton(
+                onClick = { query = ""; filter = HistoryFilter.ALL; showAll = false; expanded = null },
+                modifier = Modifier.fillMaxWidth().testTag("call-history-reset-filters"),
+            ) { Text(stringResource(R.string.calls_reset_history_filters)) }
         } else GroupCard {
             val visible = if (showAll) results else results.take(3)
             visible.forEachIndexed { index, record ->

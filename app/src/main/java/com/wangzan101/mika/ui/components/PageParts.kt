@@ -3,6 +3,11 @@ package com.wangzan101.mika.ui.components
 import com.wangzan101.mika.R
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -71,7 +76,10 @@ fun RowActions(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     ) { content() }
 }
 
-/** 搜索框:浅填充底、圆角 14、高 40,左边放大镜。给了 [onSubmit] 时键盘上是「前往」,按下交给它。 */
+/**
+ * 搜索框:浅填充底、圆角 14、高 40,左边放大镜。给了 [onSubmit] 时键盘上是「前往」,按下交给它。
+ * 给了 [onClear] 时,有字就在右边放一个清除按钮([clearTag] 是它的测试标签)。
+ */
 @Composable
 fun SearchField(
     value: String,
@@ -79,6 +87,8 @@ fun SearchField(
     placeholder: String,
     modifier: Modifier = Modifier,
     onSubmit: (() -> Unit)? = null,
+    onClear: (() -> Unit)? = null,
+    clearTag: String? = null,
 ) {
     val c = MikaTheme.colors
     Row(
@@ -95,6 +105,13 @@ fun SearchField(
                 keyboardOptions = if (onSubmit != null) KeyboardOptions(imeAction = ImeAction.Go) else KeyboardOptions.Default,
                 keyboardActions = KeyboardActions(onGo = { onSubmit?.invoke() }),
             )
+        }
+        if (onClear != null && value.isNotEmpty()) {
+            Box(
+                Modifier.size(36.dp).clip(CircleShape).clickable(role = Role.Button, onClick = onClear)
+                    .then(if (clearTag != null) Modifier.testTag(clearTag) else Modifier),
+                contentAlignment = Alignment.Center,
+            ) { Icon(MikaIcons.Close, stringResource(R.string.clear), Modifier.size(18.dp), tint = c.ink3) }
         }
     }
 }

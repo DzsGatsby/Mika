@@ -2,7 +2,11 @@ package com.wangzan101.mika.calls.ui
 
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
+import com.wangzan101.mika.calls.CallTaskBrief
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class CallDialNumberEditTest {
@@ -18,13 +22,51 @@ class CallDialNumberEditTest {
         assertEquals(TextFieldValue("12", TextRange(0)), deleteNumberSelection(TextFieldValue("12", TextRange(0))))
     }
 
-    @Test fun draftFieldsRoundTripThroughClearAndRestoreWithoutSavingExtraFields() {
+    @Test fun dialPadEditsTheDraftAtItsCursor() {
         val draft = CallTaskDraft()
-        val prior = listOf("123", "goal", "question", "context", "constraint", "sim")
-        draft.restoreFields(prior)
-        draft.clear()
+        draft.number = "1388"
+        assertEquals(TextRange(4), draft.numberInput.selection)
+        draft.numberInput = draft.numberInput.copy(selection = TextRange(2))
+        draft.pressDialKey('0')
+        assertEquals("13088", draft.number)
+        draft.numberInput = draft.numberInput.copy(selection = TextRange(1, 3))
+        draft.pressDialBackspace()
+        assertEquals("188", draft.number)
+        assertEquals(TextRange(1), draft.numberInput.selection)
+        // Writing the same text again (state restore, reuse) keeps the user's cursor.
+        draft.number = "188"
+        assertEquals(TextRange(1), draft.numberInput.selection)
+    }
+
+    @Test fun clearAndUndoOnlyTouchTheTextAndNeverTheSimChoice() {
+        val draft = CallTaskDraft()
+        draft.fill("10086", CallTaskBrief("goal", listOf("q"), "ctx", "rule"))
+        draft.simOverride = "sim-2"
+        val before = draft.snapshotFields()
+        val cleared = draft.clearText()!!
+        assertEquals(listOf("", "", "", "", "", "sim-2"), draft.snapshotFields())
+        assertFalse(draft.hasContent)
+        assertEquals("ClearedCallTaskText(redacted)", cleared.toString())
+        assertTrue(draft.undoClear(cleared))
+        assertEquals(before, draft.snapshotFields())
+    }
+
+    @Test fun undoNeverOverwritesNewTextAndAnEmptyDraftHasNothingToClear() {
+        val draft = CallTaskDraft()
+        assertNull(draft.clearText())
+        draft.goal = "old"
+        val cleared = draft.clearText()!!
+        draft.number = "123"
+        assertFalse(draft.undoClear(cleared))
+        assertEquals("123", draft.number)
+        assertEquals("", draft.goal)
+    }
+
+    @Test fun savedStateKeepsOnlyTheSixDraftFields() {
+        val draft = CallTaskDraft()
+        draft.goal = "goal"
+        draft.clearText()
+        // Nothing about the cleared text is part of what the saver writes.
         assertEquals(List(6) { "" }, draft.snapshotFields())
-        draft.restoreFields(prior)
-        assertEquals(prior, draft.snapshotFields())
     }
 }
