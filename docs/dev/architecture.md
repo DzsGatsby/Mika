@@ -480,3 +480,16 @@ The MCP client passes each connected server's `instructions` to the model as bou
 ## 通话结束后的摘要与跟进草稿
 
 `CallRuntime.summarizeCall`（`app/calls/CallRuntime.kt`） 沿用通话摘要开关与发送前授权检查，在结束后的摘要请求中由 `CallSummaryGenerator` 同时生成结构化摘要及可空的 `CallSummary.followUpDraft`。不增加额外模型请求；草稿最多保存 600 个字符。缺少或格式不正确的可选草稿不影响其余摘要，旧记录默认没有草稿。`CallHistory.saveFollowUpDraft` 通过既有互斥锁、加密文件与写成功后发布的路径保存编辑，不覆盖转写、待办或处理状态，不复活已删除记录。`app/calls/ui/CallFollowUpDraft.kt` 仅提供编辑、保存、复制，保存失败保留编辑内容；没有联系人查找或发送能力。
+
+## 通话的后台待命恢复
+
+来电待命是一个前台服务（`app/calls/CallStandbyService.kt`）。主人在电话页点「开始待命」后，授权存进 `CallSettings`，重启、进程被回收后都还在。之后系统有两条路把它重新拉起，只恢复来电待命，从不重放外拨：
+
+- **看得见时**：Mika 在前台、可交互时，`CallRuntime` 的恢复门重新请求待命。
+- **周期检查**：`CallStandbyRecoveryJob` 是一个持久化的 JobScheduler 周期任务（约 15 分钟，系统可能推迟），开机后照样在，用来兜住系统没有重启粘性服务的情况。授权在时任务就一直排着；电池优化豁免（安卓 12 起才需要）、后台限制和通知权限都在每次运行时才查，所以权限收回时只是这次不启动，权限一回来下一次检查就重新待命，不用打开 App。
+
+两条路走同一条规则 `CallStandbyPolicy.mayRequestIncomingStandby`（`StandbyTrigger.Visible` / `Scheduled`）：授权、自动接听就绪、通知可用，并且没有配置中、启动中、已在待命、通话或外拨工作、锁屏拨号、未接管的托管通话；只是系统允许启动的条件不同（前台可交互 / 允许任务启动前台服务）。
+
+明确停止就是在 App 里关掉待命、自动接听或 AI 电话（撤销授权、取消任务），或者「完全退出」（`MikaQuit`：退出标记让 `hasAuthorizedIncomingStandby` 为假并取消任务，重新打开 Mika 后按存下的授权重新排上）。在最近任务里划掉不算停止；系统设置里的强行停止由系统自己取消任务和粘性重启。
+
+待命受阻时通知点开电话页已有的待命检查页（`MainActivity.EXTRA_OPEN_CALL_STANDBY`，一次性请求，检查页打开后清掉），不另设状态。

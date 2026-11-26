@@ -55,6 +55,7 @@ import com.wangzan101.mika.about.MikaLinks
 import com.wangzan101.mika.about.QrImage
 import com.wangzan101.mika.about.ReleaseInfo
 import com.wangzan101.mika.browser.UserBrowser
+import com.wangzan101.mika.calls.CallStandbyRecoveryJob
 import com.wangzan101.mika.calls.activeVoiceProfile
 import com.wangzan101.mika.cap.phone.PhoneServices
 import com.wangzan101.mika.cap.sandbox.AttachmentFailure
@@ -161,6 +162,7 @@ class MainActivity : ComponentActivity() {
     private var requestedCalls by mutableStateOf(false)
     private var requestedCallHistoryId by mutableStateOf<String?>(null)
     private var voiceCallSignal by mutableIntStateOf(0)
+    private var requestedCallStandby by mutableStateOf(false)
     private var openTeach by mutableStateOf(false)
     private var requestedSharedDraft by mutableStateOf<SharedDraftRequest?>(null)
     private var shareJob: Job? = null
@@ -192,6 +194,7 @@ class MainActivity : ComponentActivity() {
         requestedCalls = intent.getBooleanExtra(EXTRA_OPEN_CALLS, false)
         requestedCallHistoryId = intent.getStringExtra(EXTRA_CALL_HISTORY_ID)
         takeVoiceCall(intent)
+        takeCallStandby(intent)
         takeTeach(intent)
         shareInCurrent = savedInstanceState?.getBoolean(STATE_SHARE_IN_CURRENT, false) ?: false
         shareHandled = savedInstanceState?.getBoolean(STATE_SHARE_HANDLED, false) ?: false
@@ -226,6 +229,8 @@ class MainActivity : ComponentActivity() {
                         },
                         openTeach = openTeach,
                         onTeachOpened = { openTeach = false },
+                        requestedCallStandby = requestedCallStandby,
+                        onCallStandbyOpened = { requestedCallStandby = false },
                     )
                 }
             }
@@ -248,6 +253,7 @@ class MainActivity : ComponentActivity() {
             app.chat.cancelPendingSharedDraft()
         }
         takeVoiceCall(intent)
+        takeCallStandby(intent)
         takeTeach(intent)
         requestedSharedDraft?.let { app.sharedDrafts.discard(it.draft.attachments) }
         requestedSharedDraft = null
@@ -304,6 +310,8 @@ class MainActivity : ComponentActivity() {
         super.onStart()
         // 用户先前点了「完全退出」:打开 Mika 就回来,胶囊和退出时略过的启动工作在这里补上
         com.wangzan101.mika.MikaQuit.resume(this)
+        // 主人亲手打开 Mika:清掉「系统里被主动停止」的记录,按已有授权重新排上来电待命的周期检查
+        CallStandbyRecoveryJob.onOwnerOpenedApp(application as MikaApp)
         monitor.start()
         // 每次打开都悄悄查一次新版本(两分钟内连着打开的只查一次),失败不吭声
         val app = application as MikaApp
@@ -425,10 +433,18 @@ class MainActivity : ComponentActivity() {
         intent.removeExtra(EXTRA_OPEN_VOICE_CALL)
     }
 
+    /** 待命通知「去处理」直开电话页的待命检查:一次性请求,电话页打开检查页后清掉;读一次就摘掉,旋转不重复触发。 */
+    private fun takeCallStandby(intent: Intent) {
+        if (!intent.getBooleanExtra(EXTRA_OPEN_CALL_STANDBY, false)) return
+        requestedCallStandby = true
+        intent.removeExtra(EXTRA_OPEN_CALL_STANDBY)
+    }
+
     companion object {
         const val EXTRA_OPEN_CONVERSATION = "open_conversation"
         const val EXTRA_OPEN_CALLS = "open_calls"
         const val EXTRA_CALL_HISTORY_ID = "call_history_id"
+        const val EXTRA_OPEN_CALL_STANDBY = "open_call_standby"
         const val EXTRA_OPEN_TEACH = "open_teach"
         const val EXTRA_TEACH_GOAL = "teach_goal"
         const val EXTRA_OPEN_VOICE_CALL = "open_voice_call"
@@ -496,6 +512,8 @@ private fun MikaRoot(
     onSharedDraftOpened: (Boolean, SharedDraft) -> Unit,
     openTeach: Boolean,
     onTeachOpened: () -> Unit,
+    requestedCallStandby: Boolean = false,
+    onCallStandbyOpened: () -> Unit = {},
 ) {
     val context = LocalContext.current
     var focusedCallHistoryId by remember { mutableStateOf<String?>(null) }
@@ -601,6 +619,13 @@ private fun MikaRoot(
             focusedCallHistoryId = requestedCallHistoryId
             nav.push(Route.Calls)
             onCallsOpened()
+        }
+    }
+    // 只负责把电话页摆到最上面;请求留到电话页真的打开检查页时才清(onCallStandbyOpened)
+    LaunchedEffect(requestedCallStandby) {
+        if (requestedCallStandby) {
+            focusedCallHistoryId = null
+            nav.bringToTop(Route.Calls)
         }
     }
     LaunchedEffect(sharedDraft) {
@@ -955,7 +980,9 @@ private fun MikaRoot(
             app.chat.openConversation(it)
             nav.reset()
         })
-        Route.Calls -> CallSettingsScreen(app.calls, onBack = back, initialHistoryCallId = focusedCallHistoryId, onOpenVoiceCatalog = { nav.push(Route.VoiceServices) })
+        Route.Calls -> CallSettingsScreen(app.calls, onBack = back, initialHistoryCallId = focusedCallHistoryId,
+            openStandbyChecklist = requestedCallStandby, onStandbyChecklistOpened = onCallStandbyOpened,
+            onOpenVoiceCatalog = { nav.push(Route.VoiceServices) })
     }
     }
         }

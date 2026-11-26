@@ -21,6 +21,14 @@
 - Follow-up port: FlashPhone v1.1.13 (`554e69207de151329f71821f915cde997f8e69fc`),
   per-carrier-call task binding and compact latest-transcript context; adapted to Mika's
   existing call card and transcript role labels, with ownership/lifetime regressions.
+- Follow-up port: FlashPhone v1.1.14 (`4f61f27fc3fc7c5b71262e775090ee9724d8bb6b`) and v1.1.15
+  (`9b7b8fb75d0323e33a2bdd6a38ebb417b058eb78`, including `b19eed6a73505adbfa766ec6f1e117ae1ed0df78`), background standby
+  recovery: a periodic, persisted JobScheduler check (`calls/CallStandbyRecoveryJob.kt`) that re-requests
+  only the incoming standby the owner already granted, one start rule shared with the visible-resume
+  path (`calls/CallStandbyPolicy.kt`), translated helper guidance, and the blocked-standby notification
+  opening the existing standby checklist (`calls/CallStandbyService.kt`, `calls/ui/CallSettingsScreen.kt`,
+  `ui/MainActivity.kt`, with `app/src/androidTest/java/com/wangzan101/mika/calls/ui/CallStandbyNotificationRouteTest.kt`).
+  Adapted to Mika's split call runtime, full-exit semantics and existing translations, with policy unit tests.
 - Follow-up port: FlashPhone v1.1.16 (`2a46887f26a6f09f7fc664702d4e193c0b81e5b4`), dialer and
   call-history interactions: a collapsible dial pad whose keys and backspace edit at the
   cursor/selection (`calls/ui/CallDialNumberEdit.kt`, `calls/ui/CallTaskScreen.kt`), clearing
